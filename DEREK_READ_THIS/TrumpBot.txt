@@ -1,0 +1,77 @@
+TrumpBot:
+
+It didn't make sense to spend weeks rewriting this same code, so I borrowed code. For this project, we want to make it better! And do some transfer learning to personalize for trump responses.
+Our starting point was code https://github.com/suriyadeepan/easy_seq2seq, where the seq2seq_model.py was basically copied straight from tensorflow/tensroflow/models/tutorials/rnn/translate/. That repository added some useful extensions which I am using (decode function for chatting, perplexity calculation, GUI, etc.). 
+
+Steps taken: (see diffs)
+> added trump data. Movie data all moved to "training", with only trump data in "test". Movie data has padding mask 0.2 weight!
+> wrote a better tokenizer.
+> tuned model parameters in config.
+
+Current model description:
+> Uses tf.nn.seq2seq.embedding_attention_seq2seq within call of tf.nn.seq2seq.model_with_buckets.
+> Currently configured to enc/dec vocabs of 20,000, 3 lstm layers, h=128, batch_size=128, 5 buckets up to 50words, max_gradient_norm = 5.
+> TrainingSet: movie data (138,000 q/a pairs, 0.2 mask weight), trump data (25,000 q/a pairs)
+> DevSet: 2800 trump data.
+
+Terminal output when training:
+global step 900 learning rate 0.5000 step-time 1.30 perplexity 138.54
+  eval: bucket 0 perplexity 75.86
+  eval: bucket 1 perplexity 131.16
+  eval: bucket 2 perplexity 172.89
+  eval: bucket 3 perplexity 180.58
+global step 1050 learning rate 0.5000 step-time 1.50 perplexity 136.63
+  eval: bucket 0 perplexity 79.51
+  eval: bucket 1 perplexity 141.50
+  eval: bucket 2 perplexity 147.91
+  eval: bucket 3 perplexity 171.67
+global step 1200 learning rate 0.5000 step-time 1.41 perplexity 127.18
+  eval: bucket 0 perplexity 77.29
+  eval: bucket 1 perplexity 107.64
+  eval: bucket 2 perplexity 178.61
+  eval: bucket 3 perplexity 222.88
+....
+global step 2250 learning rate 0.5000 step-time 1.33 perplexity 108.03
+  eval: bucket 0 perplexity 67.80
+  eval: bucket 1 perplexity 84.29
+  eval: bucket 2 perplexity 141.49
+  eval: bucket 3 perplexity 142.36
+....
+global step 6150 learning rate 0.5000 step-time 1.53 perplexity 41.42
+  eval: bucket 0 perplexity 20.35
+  eval: bucket 1 perplexity 44.83
+  eval: bucket 2 perplexity 58.51
+  eval: bucket 3 perplexity 50.29
+global step 6300 learning rate 0.4950 step-time 1.41 perplexity 39.35
+  eval: bucket 0 perplexity 20.48
+  eval: bucket 1 perplexity 36.92
+  eval: bucket 2 perplexity 49.03
+  eval: bucket 3 perplexity 51.96
+global step 6450 learning rate 0.4950 step-time 1.45 perplexity 40.52
+  eval: bucket 0 perplexity 21.32
+  eval: bucket 1 perplexity 33.31
+  eval: bucket 2 perplexity 55.82
+  eval: bucket 3 perplexity 52.14
+  ....
+global step 21150 learning rate 0.4344 step-time 1.43 perplexity 22.41
+  eval: bucket 0 perplexity 12.84
+  eval: bucket 1 perplexity 16.08
+  eval: bucket 2 perplexity 26.69
+  eval: bucket 3 perplexity 27.09
+
+Results when chatting:
+> 700 steps --> just a blank space returns every time.
+> 1300 steps--> just a "i .", or similar.
+> 6000 steps--> overly high use of one word answers, unrelated. Uses '0' and UNK a lot. These are over represented in the expected answers.
+> 21,000 steps> Seemingly random responses or lack of responses.
+Q:Crooked Hillary Clinton is spending a fortune on ads against me.
+A:he 's a great guy !
+Q:Will mexicans pay for the wall?
+A:i 'm not sure .
+
+
+
+Ideas of how to improve?
+> ????
+> initialize embeddings with glove. http://stackoverflow.com/questions/33851950/initialising-seq2seq-embedding-with-pretrained-word2vec
+
