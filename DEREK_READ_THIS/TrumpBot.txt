@@ -68,10 +68,32 @@ Q:Crooked Hillary Clinton is spending a fortune on ads against me.
 A:he 's a great guy !
 Q:Will mexicans pay for the wall?
 A:i 'm not sure .
+> 23250 steps.
+Q: The wall is going to be really expensive. How will we actually make the mexicans pay for it as opposed to the americans?
+A: i do n't know what i am .
+> 29100 steps.
+Q: The wall is going to be really expensive. How will we actually make the mexicans pay for it as opposed to the americans?
+A: i will not be sure .
+> 31350 steps.
+Q: The wall is going to be really expensive. How will we actually make the mexicans pay for it as opposed to the americans?
+A: i will be back to the border , and i will be back to the border .
+> 32000 steps.
+Q: Today is armed forces day.
+A: he is a great guy .
+
 
 
 
 Ideas of how to improve?
 > ????
 > initialize embeddings with glove. http://stackoverflow.com/questions/33851950/initialising-seq2seq-embedding-with-pretrained-word2vec
+> Add MORE training data. Particularly from other presidents. 
+> Clean up data better.
+> Fix problem with bucketing. Some short questions require long responses, but the bucket is loaded which gives short responses. This is limiting.
+
+Bugs to fix:
+> crashes when long sequence is input. 
+
+
+
 
