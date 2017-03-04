@@ -48,7 +48,7 @@ def get_config(config_file='seq2seq.ini'):
 
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
-_buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
+_buckets = [(5, 10), (10, 15), (20, 25), (40, 50), (60,60)]
 
 
 def read_data(source_path, target_path, max_size=None, trump_source_path=None, trump_target_path=None, reduced_weight=None):
@@ -68,6 +68,12 @@ def read_data(source_path, target_path, max_size=None, trump_source_path=None, t
       into the n-th bucket, i.e., such that len(source) < _buckets[n][0] and
       len(target) < _buckets[n][1]; source and target are lists of token-ids.
   """
+
+
+  # We don't need this feature now.
+  reduced_weight = False
+
+
   data_set = [[] for _ in _buckets]
   with tf.gfile.GFile(source_path, mode="r") as source_file:
     with tf.gfile.GFile(target_path, mode="r") as target_file:
@@ -126,6 +132,7 @@ def create_model(session, forward_only):
   else:
     print("Created model with fresh parameters.")
     session.run(tf.global_variables_initializer())
+
   return model
 
 
@@ -142,6 +149,11 @@ def train():
     # Create model.
     print("Creating %d layers of %d units." % (gConfig['num_layers'], gConfig['layer_size']))
     model = create_model(sess, False)
+
+
+    logs_path = '/tmp/tensorflow/trump0'
+    summary_op = tf.summary.merge_all()
+
 
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
@@ -172,15 +184,20 @@ def train():
       bucket_id = min([i for i in xrange(len(train_buckets_scale))
                        if train_buckets_scale[i] > random_number_01])
 
+      writer = tf.summary.FileWriter(logs_path, graph=tf.get_default_graph())
+
       # Get a batch and make a step.
       start_time = time.time()
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
           merged_train_set, bucket_id)
-      _, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
-                                   target_weights, bucket_id, False)
+      _, step_loss, _, tb_summary = model.step(sess, encoder_inputs, decoder_inputs,
+                                   target_weights, bucket_id, False, summary_op)
       step_time += (time.time() - start_time) / gConfig['steps_per_checkpoint']
       loss += step_loss / gConfig['steps_per_checkpoint']
       current_step += 1
+
+      if current_step % 20 == 0:
+        writer.add_summary(tb_summary, current_step)
 
       # Once in a while, we save checkpoint, print statistics, and run evals.
       if current_step % gConfig['steps_per_checkpoint'] == 0:
@@ -205,7 +222,7 @@ def train():
           encoder_inputs, decoder_inputs, target_weights = model.get_batch(
               dev_set, bucket_id)
           _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
-                                       target_weights, bucket_id, True)
+                                       target_weights, bucket_id, True, summary_op)
           eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
           print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
         sys.stdout.flush()
@@ -248,7 +265,7 @@ def decode():
           {bucket_id: [(token_ids, [])]}, bucket_id)
       # Get output logits for the sentence.
       _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                       target_weights, bucket_id, True)
+                                       target_weights, bucket_id, True, None)
       # This is a greedy decoder - outputs are just argmaxes of output_logits.
       outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
       # If there is an EOS symbol in outputs, cut them at that point.
@@ -278,7 +295,7 @@ def self_test():
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
           data_set, bucket_id)
       model.step(sess, encoder_inputs, decoder_inputs, target_weights,
-                 bucket_id, False)
+                 bucket_id, False, None) # Need to fix "None" in this case.
 
 
 def init_session(sess, conf='seq2seq.ini'):
@@ -309,7 +326,7 @@ def decode_line(sess, model, enc_vocab, rev_dec_vocab, sentence):
     encoder_inputs, decoder_inputs, target_weights = model.get_batch({bucket_id: [(token_ids, [])]}, bucket_id)
 
     # Get output logits for the sentence.
-    _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id, True)
+    _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id, True, None)
 
     # This is a greedy decoder - outputs are just argmaxes of output_logits.
     outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]

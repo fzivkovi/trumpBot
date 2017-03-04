@@ -38,10 +38,11 @@ _UNK = b"_UNK"
 hyperlink = b"https:<link>"
 _START_VOCAB = [_PAD, _GO, _EOS, _UNK, hyperlink]
 
-PAD_ID = 0
-GO_ID = 1
-EOS_ID = 2
-UNK_ID = 3
+from tensorflow.models.rnn.translate import data_utils
+PAD_ID = data_utils.PAD_ID # 0
+GO_ID = data_utils.GO_ID # 1
+EOS_ID = data_utils.EOS_ID # 2
+UNK_ID = data_utils.UNK_ID # 3
 hyperlink = 4
 
 # Regular expressions used to tokenize.
@@ -65,32 +66,67 @@ def basic_tokenizer(sentence):
 
   return [w for w in words if w]
 
-def spacy_tokenizer(paragraph, encoder=True):
-  words = []
-  intermediate_words = []
+# def spacy_tokenizer(paragraph, encoder=True):
+#   words = []
+#   intermediate_words = []
 
-  def processWord(word):
-    word = str(word).lower().strip()
-    if 'http' in word:
-      return hyperlink
-    return word
+#   def processWord(word):
+#     word = str(word).lower().strip()
+#     if 'http' in word:
+#       return hyperlink
+#     return word
 
-  doc1 = nlp(unicode(paragraph, errors='ignore'))
-  for sent in doc1.sents:
-    sentence = [processWord(word) for word in sent]
-    sentence = [str(word)  for word in sentence if word]
-    words.extend(sentence)
-    intermediate_words.append(sentence)
+#   doc1 = nlp(unicode(paragraph, errors='ignore'))
+#   for sent in doc1.sents:
+#     sentence = [processWord(word) for word in sent]
+#     sentence = [str(word)  for word in sentence if word]
+#     words.extend(sentence)
+#     intermediate_words.append(sentence)
 
-  # Make sure that none are larger than our largest bucket.
-  while len(words) >= 50:
-    if encoder:
-      del intermediate_words[0]
-    else:
-      del intermediate_words[-1]
-    words = [w for s in intermediate_words for w in s]
+#   # Make sure that none are larger than our largest bucket.
+#   while len(words) >= 50:
+#     if encoder:
+#       del intermediate_words[0]
+#     else:
+#       del intermediate_words[-1]
+#     words = [w for s in intermediate_words for w in s]
 
-  return words
+#   return words
+
+
+def spacy_tokenizer(paragraph):
+    # Uses spacy to parse multi-sentence paragraphs into a list of token words.
+    words = []
+    intermediate_words = []
+
+    def processWord(word):
+        word = str(word).lower().strip()
+        if 'http' in word:
+            return [hyperlink]
+        # Don't clean these!
+        if word in [',', '.', '?', '!', ':', '"', '\'', '/', '[', ']', '+', '-', '--', '&', '@']:
+            return [word]
+        m = re.findall('([\w\.\,\:\%\$\']+)', word)
+        m = [w.strip('.') for w in m]
+        m = [w for w in m if w]
+        return m
+        
+    doc1 = nlp(unicode(paragraph, errors='ignore'))
+    for sent in doc1.sents:
+        # 2-d list.
+        sentence = [processWord(word) for word in sent]
+        # flatten.
+        sentence = [word for words in sentence for word in words]
+        sentence = [str(word) for word in sentence if word]
+        words.extend(sentence)
+        intermediate_words.append(sentence)
+
+    # Make sure that none are larger than our largest bucket.
+    while len(words) >= 60:
+        del intermediate_words[-1]
+        words = [w for s in intermediate_words for w in s]
+
+    return words
 
 
 def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
@@ -104,6 +140,9 @@ def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
     if type(data_path) == str:
       data_path = [data_path]
     for one_data_path in data_path:
+      print(one_data_path)
+      if one_data_path == 'None':
+        continue
       with gfile.GFile(one_data_path, mode="rb") as f:
         counter = 0
         for line in f:
@@ -136,6 +175,7 @@ def initialize_vocabulary(vocabulary_path):
       rev_vocab.extend(f.readlines())
     rev_vocab = [line.strip() for line in rev_vocab]
     vocab = dict([(x, y) for (y, x) in enumerate(rev_vocab)])
+
     return vocab, rev_vocab
   else:
     raise ValueError("Vocabulary file %s not found.", vocabulary_path)
@@ -155,6 +195,9 @@ def sentence_to_token_ids(sentence, vocabulary, tokenizer=None, normalize_digits
 
 def data_to_token_ids(data_path, target_path, vocabulary_path,
                       tokenizer=None, normalize_digits=True):
+
+  if data_path == 'None':
+    return
 
   if not gfile.Exists(target_path):
     print("Tokenizing data in %s" % data_path)

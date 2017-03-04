@@ -58,6 +58,24 @@ global step 21150 learning rate 0.4344 step-time 1.43 perplexity 22.41
   eval: bucket 1 perplexity 16.08
   eval: bucket 2 perplexity 26.69
   eval: bucket 3 perplexity 27.09
+  ....
+global step 40950 learning rate 0.3345 step-time 1.02 perplexity 16.66
+  eval: bucket 0 perplexity 13.40
+  eval: bucket 1 perplexity 18.80
+  eval: bucket 2 perplexity 28.63
+  eval: bucket 3 perplexity 23.33
+  ...
+global step 80250 learning rate 0.1830 step-time 0.92 perplexity 11.90
+  eval: bucket 0 perplexity 13.75
+  eval: bucket 1 perplexity 32.13
+  eval: bucket 2 perplexity 39.63
+  eval: bucket 3 perplexity 35.13
+global step 80400 learning rate 0.1830 step-time 0.88 perplexity 11.45
+  eval: bucket 0 perplexity 13.15
+  eval: bucket 1 perplexity 30.88
+  eval: bucket 2 perplexity 37.59
+  eval: bucket 3 perplexity 30.34
+
 
 Results when chatting:
 > 700 steps --> just a blank space returns every time.
@@ -80,7 +98,9 @@ A: i will be back to the border , and i will be back to the border .
 > 32000 steps.
 Q: Today is armed forces day.
 A: he is a great guy .
-
+> 80000 steps
+Q: The wall is going to be really expensive. How will we actually make the mexicans pay for it as opposed to the americans?
+A: Now the people are going to be great.
 
 
 
@@ -89,10 +109,23 @@ Ideas of how to improve?
 > initialize embeddings with glove. http://stackoverflow.com/questions/33851950/initialising-seq2seq-embedding-with-pretrained-word2vec
 > Add MORE training data. Particularly from other presidents. 
 > Clean up data better.
-> Fix problem with bucketing. Some short questions require long responses, but the bucket is loaded which gives short responses. This is limiting.
 
-Bugs to fix:
-> crashes when long sequence is input. 
+STILL TO DISCUSS:
+> Fix problem with bucketing. Some short questions require long responses, but the bucket is loaded which gives short responses. This is limiting.
+We get short answers:
+> Can batch size cause overfitting? My guess is no! Just has to do with the steps we take in descent. Are we arriving at different minimum?
+> 
+
+
+
+
+
+
+
+pointer sentimal model--> seek answers in paper
+
+
+
 
 
 

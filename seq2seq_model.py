@@ -84,8 +84,10 @@ class Seq2SeqModel(object):
     # Sampled softmax only makes sense if we sample less than vocabulary size.
     if num_samples > 0 and num_samples < self.target_vocab_size:
       w = tf.get_variable("proj_w", [size, self.target_vocab_size])
+      tf.summary.histogram("Output_Projection_W", w)
       w_t = tf.transpose(w)
       b = tf.get_variable("proj_b", [self.target_vocab_size])
+      tf.summary.histogram("Output_Projection_b", b)
       output_projection = (w, b)
 
       def sampled_loss(inputs, labels):
@@ -137,10 +139,10 @@ class Seq2SeqModel(object):
           softmax_loss_function=softmax_loss_function)
       # If we use output projection, we need to project outputs for decoding.
       if output_projection is not None:
-        for b in xrange(len(buckets)):
-          self.outputs[b] = [
+        for buck in xrange(len(buckets)):
+          self.outputs[buck] = [
               tf.matmul(output, output_projection[0]) + output_projection[1]
-              for output in self.outputs[b]
+              for output in self.outputs[buck]
           ]
     else:
       self.outputs, self.losses = tf.nn.seq2seq.model_with_buckets(
@@ -155,18 +157,24 @@ class Seq2SeqModel(object):
       self.gradient_norms = []
       self.updates = []
       opt = tf.train.GradientDescentOptimizer(self.learning_rate)
-      for b in xrange(len(buckets)):
-        gradients = tf.gradients(self.losses[b], params)
+      for buck in xrange(len(buckets)):
+        gradients = tf.gradients(self.losses[buck], params)
         clipped_gradients, norm = tf.clip_by_global_norm(gradients,
                                                          max_gradient_norm)
         self.gradient_norms.append(norm)
         self.updates.append(opt.apply_gradients(
             zip(clipped_gradients, params), global_step=self.global_step))
 
+        # tf.summary.histogram("modelWithBucketsOutputs_%s" % buck, self.outputs[buck])
+        # tf.summary.histogram("modelWithBucketsLosses_%s" % buck, self.losses[buck])
+        # # tf.summary.histogram('gradients_%s' % buck, gradients)
+        # tf.summary.histogram('gradient_norm_%s' % buck, norm)
+        # # tf.summary.histogram('clipped_gradients_%s' % buck, clipped_gradients)
+
     self.saver = tf.train.Saver(tf.global_variables())
 
   def step(self, session, encoder_inputs, decoder_inputs, target_weights,
-           bucket_id, forward_only):
+           bucket_id, forward_only, summary_op):
     """Run a step of the model feeding the given inputs.
 
     Args:
@@ -213,7 +221,7 @@ class Seq2SeqModel(object):
     if not forward_only:
       output_feed = [self.updates[bucket_id],  # Update Op that does SGD.
                      self.gradient_norms[bucket_id],  # Gradient norm.
-                     self.losses[bucket_id]]  # Loss for this batch.
+                     self.losses[bucket_id], summary_op]  # Loss for this batch.
     else:
       output_feed = [self.losses[bucket_id]]  # Loss for this batch.
       for l in xrange(decoder_size):  # Output logits.
@@ -221,7 +229,7 @@ class Seq2SeqModel(object):
 
     outputs = session.run(output_feed, input_feed)
     if not forward_only:
-      return outputs[1], outputs[2], None  # Gradient norm, loss, no outputs.
+      return outputs[1], outputs[2], None, outputs[3] # Gradient norm, loss, no outputs.
     else:
       return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
 
