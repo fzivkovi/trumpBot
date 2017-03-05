@@ -28,9 +28,9 @@ import tensorflow as tf
 from tensorflow.models.rnn.translate import data_utils
 
 import sys
+import os
 
-
-from config import *
+import config
 
 from six.moves import zip   
 
@@ -52,6 +52,40 @@ from tensorflow.python.util import nest
 
 # TODO(ebrevdo): Remove once _linear is fully deprecated.
 linear = rnn_cell._linear  # pylint: disable=protected-access
+
+
+def local_extract_argmax_and_embed(embedding, output_projection=None,
+                              update_embedding=True):
+
+
+  print("HEY FILIP YAY ACTUALLY USING THIS...NOW DELETE THE PRINT.")
+  sys.exit()
+
+  """Get a loop_function that extracts the previous symbol and embeds it.
+
+  Args:
+    embedding: embedding tensor for symbols.
+    output_projection: None or a pair (W, B). If provided, each fed previous
+      output will first be multiplied by W and added B.
+    update_embedding: Boolean; if False, the gradients will not propagate
+      through the embeddings.
+
+  Returns:
+    A loop function.
+  """
+  def loop_function(prev, _):
+    if output_projection is not None:
+      prev = nn_ops.xw_plus_b(
+          prev, output_projection[0], output_projection[1])
+    prev_symbol = math_ops.argmax(prev, 1)
+    # Note that gradients will not propagate through the second parameter of
+    # embedding_lookup.
+    emb_prev = embedding_ops.embedding_lookup(embedding, prev_symbol)
+    if not update_embedding:
+      emb_prev = array_ops.stop_gradient(emb_prev)
+    return emb_prev
+  return loop_function
+
 
 
 def local_attention_decoder(decoder_inputs,
@@ -179,21 +213,33 @@ def local_attention_decoder(decoder_inputs,
           # print('query ', query)
           # print('hidden_features ', hidden_features)
           # print('hidden_features[a]', hidden_features[a])
-          if attention_type == 'vinyals':
+          if config.attention_type == 'vinyals':
             y = linear(query, attention_vec_size, True)
             y = array_ops.reshape(y, [-1, 1, 1, attention_vec_size])
             # Attention mask is a softmax of v^T * tanh(...).
             s = math_ops.reduce_sum(
                 v[a] * math_ops.tanh(hidden_features[a] + y), [2, 3])
-          elif attention_type == "luong":
+          elif config.attention_type == "luong":
             ## IMPLEMENTATION:
             # Rather than this: new_attn = softmax(V^T * tanh(W * attention_states + U * new_state))
             # We want this: new_attn = softmax( query * W * attention_states )
             # hidden_features = (W * attention_states)
             # Therefore:
+
+            print("\n")
+            print('query: ', query)
+            print('attention_vec_size: ', attention_vec_size)
+            print('hidden_features[a]: ',hidden_features[a])
+
             y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
+
+            print('y: ', y)
+            print("\n")
+
             s = math_ops.reduce_sum(hidden_features[a] * y, [2, 3])
-          elif attention_type == "bahdanau":
+
+
+          elif config.attention_type == "bahdanau":
             y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
             s = math_ops.reduce_sum(hidden * y, [2, 3])
           else:
@@ -208,8 +254,8 @@ def local_attention_decoder(decoder_inputs,
               [1, 2])
           ds.append(array_ops.reshape(d, [-1, attn_size]))
 
-      print("MY ATTENTION:")
-      print(ds)
+      # print("MY ATTENTION:")
+      # print(ds)
       # ds[0] = tf.Print(ds[0], [ds[0]], message="where I'm paying attention: ", first_n=100)
       return ds
 
@@ -318,12 +364,15 @@ def local_embedding_attention_decoder(decoder_inputs,
     proj_biases = ops.convert_to_tensor(output_projection[1], dtype=dtype)
     proj_biases.get_shape().assert_is_compatible_with([num_symbols])
 
+  # TODO: FFFZZZZ, initialize embeddings properly.
   with variable_scope.variable_scope(
       scope or "embedding_attention_decoder", dtype=dtype) as scope:
 
     embedding = variable_scope.get_variable("embedding",
                                             [num_symbols, embedding_size])
-    loop_function = _extract_argmax_and_embed(
+
+    # Loop_function is here. Will need to modify this doing pointer sentinel. FFFZZZ
+    loop_function = local_extract_argmax_and_embed(
         embedding, output_projection,
         update_embedding_for_previous) if feed_previous else None
     emb_inp = [
@@ -483,10 +532,7 @@ class Seq2SeqModel(object):
     http://arxiv.org/abs/1412.2007
   """
 
-  def __init__(self, source_vocab_size, target_vocab_size, buckets, size,
-               num_layers, max_gradient_norm, batch_size, learning_rate,
-               learning_rate_decay_factor, use_lstm=False,
-               num_samples=512, forward_only=False):
+  def __init__(self, use_lstm=False, forward_only=False):
     """Create the model.
 
     Args:
@@ -509,20 +555,30 @@ class Seq2SeqModel(object):
       num_samples: number of samples for sampled softmax.
       forward_only: if set, we do not construct the backward pass in the model.
     """
-    self.source_vocab_size = source_vocab_size
-    self.target_vocab_size = target_vocab_size
-    self.buckets = buckets
-    self.batch_size = batch_size
-    self.learning_rate = tf.Variable(float(learning_rate), trainable=False)
+
+    # Just read the lengths of the vocab files, easiest way to determine.
+    def file_len(fname):
+      with open(fname) as f:
+          for i, l in enumerate(f):
+              pass
+      return i + 1
+
+    size = config.layer_size
+
+    self.source_vocab_size = file_len(os.path.join(config.working_directory,'vocab%s.enc') % config.enc_vocabulary_size)
+    self.target_vocab_size = file_len(os.path.join(config.working_directory,'vocab%s.dec') % config.dec_vocabulary_size)
+    self.buckets = config._buckets
+    self.batch_size = config.batch_size
+    self.learning_rate = tf.Variable(float(config.learning_rate), trainable=False)
     self.learning_rate_decay_op = self.learning_rate.assign(
-        self.learning_rate * learning_rate_decay_factor)
+        self.learning_rate * config.learning_rate_decay_factor)
     self.global_step = tf.Variable(0, trainable=False)
 
     # If we use sampled softmax, we need an output projection.
     output_projection = None
     softmax_loss_function = None
     # Sampled softmax only makes sense if we sample less than vocabulary size.
-    if num_samples > 0 and num_samples < self.target_vocab_size:
+    if config.num_samples > 0 and config.num_samples < self.target_vocab_size:
       w = tf.get_variable("proj_w", [size, self.target_vocab_size])
       tf.summary.histogram("Output_Projection_W", w)
       w_t = tf.transpose(w)
@@ -532,7 +588,7 @@ class Seq2SeqModel(object):
 
       def sampled_loss(inputs, labels):
         labels = tf.reshape(labels, [-1, 1])
-        return tf.nn.sampled_softmax_loss(w_t, b, inputs, labels, num_samples,
+        return tf.nn.sampled_softmax_loss(w_t, b, inputs, labels, config.num_samples,
                 self.target_vocab_size)
       softmax_loss_function = sampled_loss
 
@@ -541,8 +597,8 @@ class Seq2SeqModel(object):
     if use_lstm:
       single_cell = tf.nn.rnn_cell.BasicLSTMCell(size)
     cell = single_cell
-    if num_layers > 1:
-      cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * num_layers)
+    if config.num_layers > 1:
+      cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * config.num_layers)
 
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
@@ -550,8 +606,8 @@ class Seq2SeqModel(object):
       # return tf.nn.seq2seq.embedding_attention_seq2seq(
       return local_embedding_attention_seq2seq(
           encoder_inputs, decoder_inputs, cell,
-          num_encoder_symbols=source_vocab_size,
-          num_decoder_symbols=target_vocab_size,
+          num_encoder_symbols=self.source_vocab_size,
+          num_decoder_symbols=self.target_vocab_size,
           embedding_size=size,
           output_projection=output_projection,
           feed_previous=do_decode)
@@ -560,10 +616,10 @@ class Seq2SeqModel(object):
     self.encoder_inputs = []
     self.decoder_inputs = []
     self.target_weights = []
-    for i in xrange(buckets[-1][0]):  # Last bucket is the biggest one.
+    for i in xrange(self.buckets[-1][0]):  # Last bucket is the biggest one.
       self.encoder_inputs.append(tf.placeholder(tf.int32, shape=[None],
                                                 name="encoder{0}".format(i)))
-    for i in xrange(buckets[-1][1] + 1):
+    for i in xrange(self.buckets[-1][1] + 1):
       self.decoder_inputs.append(tf.placeholder(tf.int32, shape=[None],
                                                 name="decoder{0}".format(i)))
       self.target_weights.append(tf.placeholder(tf.float32, shape=[None],
@@ -573,15 +629,23 @@ class Seq2SeqModel(object):
     targets = [self.decoder_inputs[i + 1]
                for i in xrange(len(self.decoder_inputs) - 1)]
 
+
+
+
+
+
+
+
+
     # Training outputs and losses.
     if forward_only:
       self.outputs, self.losses = tf.nn.seq2seq.model_with_buckets(
           self.encoder_inputs, self.decoder_inputs, targets,
-          self.target_weights, buckets, lambda x, y: seq2seq_f(x, y, True),
+          self.target_weights, self.buckets, lambda x, y: seq2seq_f(x, y, True),
           softmax_loss_function=softmax_loss_function)
       # If we use output projection, we need to project outputs for decoding.
       if output_projection is not None:
-        for buck in xrange(len(buckets)):
+        for buck in xrange(len(self.buckets)):
           self.outputs[buck] = [
               tf.matmul(output, output_projection[0]) + output_projection[1]
               for output in self.outputs[buck]
@@ -589,9 +653,26 @@ class Seq2SeqModel(object):
     else:
       self.outputs, self.losses = tf.nn.seq2seq.model_with_buckets(
           self.encoder_inputs, self.decoder_inputs, targets,
-          self.target_weights, buckets,
+          self.target_weights, self.buckets,
           lambda x, y: seq2seq_f(x, y, False),
           softmax_loss_function=softmax_loss_function)
+
+      # print(len(self.outputs[0]))
+      # print(len(self.outputs[1]))
+      # print(len(self.outputs[2]))
+      # print(len(self.outputs[3]))
+      # print(len(self.outputs[4]))
+      # # 11
+      # # 16
+      # # 26
+      # # 51
+      # # 61
+
+
+
+
+
+
 
     # Gradients and SGD update operation for training the model.
     params = tf.trainable_variables()
@@ -599,10 +680,10 @@ class Seq2SeqModel(object):
       self.gradient_norms = []
       self.updates = []
       opt = tf.train.GradientDescentOptimizer(self.learning_rate)
-      for buck in xrange(len(buckets)):
+      for buck in xrange(len(self.buckets)):
         gradients = tf.gradients(self.losses[buck], params)
         clipped_gradients, norm = tf.clip_by_global_norm(gradients,
-                                                         max_gradient_norm)
+                                                         config.max_gradient_norm)
         self.gradient_norms.append(norm)
         self.updates.append(opt.apply_gradients(
             zip(clipped_gradients, params), global_step=self.global_step))

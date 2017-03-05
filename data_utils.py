@@ -22,6 +22,8 @@ import os
 import re
 import spacy
 
+import config
+
 from six.moves import urllib
 
 from tensorflow.python.platform import gfile
@@ -62,38 +64,10 @@ def basic_tokenizer(sentence):
 
   return [w for w in words if w]
 
-# def spacy_tokenizer(paragraph, encoder=True):
-#   words = []
-#   intermediate_words = []
-
-#   def processWord(word):
-#     word = str(word).lower().strip()
-#     if 'http' in word:
-#       return hyperlink
-#     return word
-
-#   doc1 = nlp(unicode(paragraph, errors='ignore'))
-#   for sent in doc1.sents:
-#     sentence = [processWord(word) for word in sent]
-#     sentence = [str(word)  for word in sentence if word]
-#     words.extend(sentence)
-#     intermediate_words.append(sentence)
-
-#   # Make sure that none are larger than our largest bucket.
-#   while len(words) >= 50:
-#     if encoder:
-#       del intermediate_words[0]
-#     else:
-#       del intermediate_words[-1]
-#     words = [w for s in intermediate_words for w in s]
-
-#   return words
-
-
 nlp = None
 def load_en():
   global nlp
-  if nlp:
+  if not nlp:
     print('loading en for spacy')
     nlp = spacy.load('en')
     print('complete loading en for spacy')
@@ -128,7 +102,7 @@ def spacy_tokenizer(paragraph):
         intermediate_words.append(sentence)
 
     # Make sure that none are larger than our largest bucket.
-    while len(words) >= 60:
+    while len(words) >= config.max_sentence_word_count:
         del intermediate_words[-1]
         words = [w for s in intermediate_words for w in s]
 
@@ -147,7 +121,7 @@ def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
       data_path = [data_path]
     for one_data_path in data_path:
       print(one_data_path)
-      if one_data_path == 'None':
+      if not one_data_path:
         continue
       with gfile.GFile(one_data_path, mode="rb") as f:
         counter = 0
@@ -202,7 +176,7 @@ def sentence_to_token_ids(sentence, vocabulary, tokenizer=None, normalize_digits
 def data_to_token_ids(data_path, target_path, vocabulary_path,
                       tokenizer=None, normalize_digits=True):
 
-  if data_path == 'None':
+  if not data_path:
     return
 
   if not gfile.Exists(target_path):
@@ -221,33 +195,38 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
 
 
 
-def prepare_custom_data(working_directory, train_enc, train_trump_enc, train_trump_dec, train_dec, test_enc, test_dec, enc_vocabulary_size, dec_vocabulary_size, tokenizer=None):
+def prepare_custom_data():
 
     tokenizer = spacy_tokenizer
 
     # Create vocabularies of the appropriate sizes.
-    enc_vocab_path = os.path.join(working_directory, "vocab%d.enc" % enc_vocabulary_size)
-    dec_vocab_path = os.path.join(working_directory, "vocab%d.dec" % dec_vocabulary_size)
-    create_vocabulary(enc_vocab_path, [train_trump_enc, train_enc], enc_vocabulary_size, tokenizer)
-    create_vocabulary(dec_vocab_path, [train_trump_dec, train_dec], dec_vocabulary_size, tokenizer)
+    enc_vocab_path = os.path.join(config.working_directory, "vocab%d.enc" % config.enc_vocabulary_size)
+    dec_vocab_path = os.path.join(config.working_directory, "vocab%d.dec" % config.dec_vocabulary_size)
+    create_vocabulary(enc_vocab_path, [config.train_movie_enc, config.train_enc], config.enc_vocabulary_size, tokenizer)
+    create_vocabulary(dec_vocab_path, [config.train_movie_dec, config.train_dec], config.dec_vocabulary_size, tokenizer)
 
     # Create token ids for the training data.
-    enc_train_ids_path = train_enc + (".ids%d" % enc_vocabulary_size)
-    dec_train_ids_path = train_dec + (".ids%d" % dec_vocabulary_size)
-    enc_train_trump_ids_path = train_trump_enc + (".ids%d" % enc_vocabulary_size)
-    dec_train_trump_ids_path = train_trump_dec + (".ids%d" % enc_vocabulary_size)
-    data_to_token_ids(train_enc, enc_train_ids_path, enc_vocab_path, tokenizer)
-    data_to_token_ids(train_dec, dec_train_ids_path, dec_vocab_path, tokenizer)
-    data_to_token_ids(train_trump_enc, enc_train_trump_ids_path, enc_vocab_path, tokenizer)
-    data_to_token_ids(train_trump_dec, dec_train_trump_ids_path, dec_vocab_path, tokenizer)
+    enc_train_ids_path = config.train_enc + (".ids%d" % config.enc_vocabulary_size)
+    dec_train_ids_path = config.train_dec + (".ids%d" % config.dec_vocabulary_size)
+    data_to_token_ids(config.train_enc, enc_train_ids_path, enc_vocab_path, tokenizer)
+    data_to_token_ids(config.train_dec, dec_train_ids_path, dec_vocab_path, tokenizer)
+
+    if config.train_movie_enc and config.train_movie_dec:
+      enc_train_movie_ids_path = config.train_movie_enc + (".ids%d" % config.enc_vocabulary_size)
+      dec_train_movie_ids_path = config.train_movie_dec + (".ids%d" % config.enc_vocabulary_size)
+      data_to_token_ids(config.train_movie_enc, enc_train_movie_ids_path, enc_vocab_path, tokenizer)
+      data_to_token_ids(config.train_movie_dec, dec_train_movie_ids_path, dec_vocab_path, tokenizer)
+    else:
+      enc_train_movie_ids_path = None
+      dec_train_movie_ids_path = None
 
     # Create token ids for the development data.
-    enc_dev_ids_path = test_enc + (".ids%d" % enc_vocabulary_size)
-    dec_dev_ids_path = test_dec + (".ids%d" % dec_vocabulary_size)
-    data_to_token_ids(test_enc, enc_dev_ids_path, enc_vocab_path, tokenizer)
-    data_to_token_ids(test_dec, dec_dev_ids_path, dec_vocab_path, tokenizer)
+    enc_dev_ids_path = config.dev_enc + (".ids%d" % config.enc_vocabulary_size)
+    dec_dev_ids_path = config.dev_dec + (".ids%d" % config.dec_vocabulary_size)
+    data_to_token_ids(config.dev_enc, enc_dev_ids_path, enc_vocab_path, tokenizer)
+    data_to_token_ids(config.dev_dec, dec_dev_ids_path, dec_vocab_path, tokenizer)
 
-    return (enc_train_ids_path, enc_train_trump_ids_path, dec_train_trump_ids_path, dec_train_ids_path, enc_dev_ids_path, dec_dev_ids_path, enc_vocab_path, dec_vocab_path)
+    return (enc_train_ids_path, enc_train_movie_ids_path, dec_train_movie_ids_path, dec_train_ids_path, enc_dev_ids_path, dec_dev_ids_path, enc_vocab_path, dec_vocab_path)
 
 
 
