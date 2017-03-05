@@ -27,7 +27,7 @@ import tensorflow as tf
 
 from tensorflow.models.rnn.translate import data_utils
 
-
+import sys
 
 
 ################
@@ -117,6 +117,10 @@ def local_attention_decoder(decoder_inputs,
       of attention_states are not set, or input size cannot be inferred
       from the input.
   """
+
+  # print(decoder_inputs)
+  # print(len(decoder_inputs))
+
   if not decoder_inputs:
     raise ValueError("Must provide at least 1 input to attention decoder.")
   if num_heads < 1:
@@ -144,6 +148,7 @@ def local_attention_decoder(decoder_inputs,
     v = []
     attention_vec_size = attn_size  # Size of query vectors for attention.
     for a in xrange(num_heads):
+      ## FFZZZZ ## THIS IS WHERE W COMES FROM.
       k = variable_scope.get_variable("AttnW_%d" % a,
                                       [1, 1, attn_size, attention_vec_size])
       hidden_features.append(nn_ops.conv2d(hidden, k, [1, 1, 1, 1], "SAME"))
@@ -165,33 +170,33 @@ def local_attention_decoder(decoder_inputs,
       # print('num_heads',num_heads)
       for a in xrange(num_heads):
         with variable_scope.variable_scope("Attention_%d" % a):
-          # y = linear(query, attention_vec_size, True)
-          # y = array_ops.reshape(y, [-1, 1, 1, attention_vec_size])
-          # # Attention mask is a softmax of v^T * tanh(...).
-          # s = math_ops.reduce_sum(
-          #     v[a] * math_ops.tanh(hidden_features[a] + y), [2, 3])
 
-          ######
+          # bahdanau when True
+          if False:
+            y = linear(query, attention_vec_size, True)
+            y = array_ops.reshape(y, [-1, 1, 1, attention_vec_size])
+            # Attention mask is a softmax of v^T * tanh(...).
+            s = math_ops.reduce_sum(
+                v[a] * math_ops.tanh(hidden_features[a] + y), [2, 3])
+          else:
+            ###### OUR CODE HERE.
+            # DIANOSIS
+            # attention_vec_size --> 64
+            # Hidden features: shape=(?, 20, 1, 64), batchsize X EncoderBucketSize x numHeads x hiddenStatesDim
+            # query: shape=(?, 64) hiddenStatesDim
+            # print('attention_vec_size ', attention_vec_size) 
+            # print('query ', query)
+            # print('hidden_features ', hidden_features)
+            # print('hidden_features[a]', hidden_features[a])
 
-          # Hidden features: shape=(?, 20, 1, 64), batchsize X EncoderBucketSize x numHeads x hiddenStatesDim
-          # query: shape=(?, 64) hiddenStatesDim
-
-          print('attention_vec_size ', attention_vec_size)
-          print('query ', query)
-          print('hidden_features ', hidden_features)
-          print('hidden_features[a]', hidden_features[a])
-
-          y = linear(query, attention_vec_size, True)
-
-          print('y ', y)
-          # hidden_features = tf.Print(hidden_features, [tf.shape(hidden_features)], message='hidden_features')
-          y = array_ops.reshape(y, [-1, 1, 1, attention_vec_size])
-
-          # Attention mask is a softmax of v^T * tanh(...).
-          s = math_ops.reduce_sum(
-              v[a] * math_ops.tanh(hidden_features[a] + y), [2, 3])
-          ######
-
+            ## IMPLEMENTATION:
+            # Rather than this: new_attn = softmax(V^T * tanh(W * attention_states + U * new_state))
+            # We want this: new_attn = softmax( query * W * attention_states )
+            # hidden_features = (W * attention_states)
+            # Therefore:
+            y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
+            s = math_ops.reduce_sum(hidden_features[a] * y, [2, 3])
+            ###### END OUR CODE
 
           a = nn_ops.softmax(s)
           # Now calculate the attention-weighted vector d.
@@ -200,7 +205,9 @@ def local_attention_decoder(decoder_inputs,
               [1, 2])
           ds.append(array_ops.reshape(d, [-1, attn_size]))
 
+      print("MY ATTENTION:")
       print(ds)
+      # ds[0] = tf.Print(ds[0], [ds[0]], message="where I'm paying attention: ", first_n=100)
       return ds
 
     outputs = []
@@ -301,8 +308,6 @@ def local_embedding_attention_decoder(decoder_inputs,
   Raises:
     ValueError: When output_projection has the wrong shape.
   """
-
-  print("HEY WERE USING THIS LOCAL VERSION.")
 
   if output_size is None:
     output_size = cell.output_size
