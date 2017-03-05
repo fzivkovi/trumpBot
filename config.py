@@ -6,6 +6,10 @@ attention_types = ['vinyals', 'luong', 'bahdanau']
 attention_type = attention_types[1]
 possibleModes = ['train', 'test', 'serve']
 mode = possibleModes[0]
+
+# TODO: Add ability for this.
+useTensorBoard = False
+
 logs_path = '/tmp/tensorflow/trump1_%s' % attention_type
 # END IMPORTANT
 
