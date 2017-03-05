@@ -48,7 +48,7 @@ def get_config(config_file='seq2seq.ini'):
 
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
-_buckets = [(5, 10), (10, 15), (20, 25), (40, 50), (60,60)]
+_buckets = [(5, 11), (6, 16), (19, 26), (39, 51), (59,61)]
 
 
 def read_data(source_path, target_path, max_size=None, trump_source_path=None, trump_target_path=None, reduced_weight=None):
@@ -150,10 +150,8 @@ def train():
     print("Creating %d layers of %d units." % (gConfig['num_layers'], gConfig['layer_size']))
     model = create_model(sess, False)
 
-
     logs_path = '/tmp/tensorflow/trump0'
     summary_op = tf.summary.merge_all()
-
 
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
@@ -196,6 +194,7 @@ def train():
       loss += step_loss / gConfig['steps_per_checkpoint']
       current_step += 1
 
+      # Uncomment for tensorboard.
       if current_step % 20 == 0:
         writer.add_summary(tb_summary, current_step)
 

@@ -21,10 +21,6 @@ from __future__ import print_function
 import os
 import re
 import spacy
-print('loading en for spacy')
-nlp = spacy.load('en')
-print('complete loading en for spacy')
-
 
 from six.moves import urllib
 
@@ -94,6 +90,15 @@ def basic_tokenizer(sentence):
 #   return words
 
 
+nlp = None
+def load_en():
+  global nlp
+  if nlp:
+    print('loading en for spacy')
+    nlp = spacy.load('en')
+    print('complete loading en for spacy')
+  return nlp 
+
 def spacy_tokenizer(paragraph):
     # Uses spacy to parse multi-sentence paragraphs into a list of token words.
     words = []
@@ -111,6 +116,7 @@ def spacy_tokenizer(paragraph):
         m = [w for w in m if w]
         return m
         
+    nlp = load_en()
     doc1 = nlp(unicode(paragraph, errors='ignore'))
     for sent in doc1.sents:
         # 2-d list.
