@@ -32,6 +32,11 @@ import sys
 
 ################
 
+# the default type.
+# attention_type = "bahdanau"
+attention_type = "luong"
+
+
 
 from six.moves import zip   
 
@@ -171,14 +176,17 @@ def local_attention_decoder(decoder_inputs,
       for a in xrange(num_heads):
         with variable_scope.variable_scope("Attention_%d" % a):
 
-          # bahdanau when True
-          if False:
+          # bahdanau when False
+
+
+
+          if attention_type == "bahdanau":
             y = linear(query, attention_vec_size, True)
             y = array_ops.reshape(y, [-1, 1, 1, attention_vec_size])
             # Attention mask is a softmax of v^T * tanh(...).
             s = math_ops.reduce_sum(
                 v[a] * math_ops.tanh(hidden_features[a] + y), [2, 3])
-          else:
+          elif attention_type == "luong":
             ###### OUR CODE HERE.
             # DIANOSIS
             # attention_vec_size --> 64
@@ -197,6 +205,9 @@ def local_attention_decoder(decoder_inputs,
             y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
             s = math_ops.reduce_sum(hidden_features[a] * y, [2, 3])
             ###### END OUR CODE
+          else:
+            print("...pick one")
+            sys.exit()
 
           a = nn_ops.softmax(s)
           # Now calculate the attention-weighted vector d.
