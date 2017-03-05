@@ -30,6 +30,8 @@ import tensorflow as tf
 import data_utils
 import seq2seq_model
 
+from config import *
+
 try:
     from ConfigParser import SafeConfigParser
 except:
@@ -150,7 +152,7 @@ def train():
     print("Creating %d layers of %d units." % (gConfig['num_layers'], gConfig['layer_size']))
     model = create_model(sess, False)
 
-    logs_path = '/tmp/tensorflow/trump0'
+    logs_path = '/tmp/tensorflow/trump1_%s' % attention_type
     summary_op = tf.summary.merge_all()
 
     # Read data into buckets and compute their sizes.

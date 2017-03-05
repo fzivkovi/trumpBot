@@ -30,14 +30,7 @@ from tensorflow.models.rnn.translate import data_utils
 import sys
 
 
-################
-
-# the default type.
-attention_type = 'vinyals'
-# attention_type = "bahdanau" # not done yet.
-attention_type = "luong"
-
-
+from config import *
 
 from six.moves import zip   
 
@@ -177,26 +170,22 @@ def local_attention_decoder(decoder_inputs,
       for a in xrange(num_heads):
         with variable_scope.variable_scope("Attention_%d" % a):
 
-          # bahdanau when False
-
-
-          if attention_type == 'vinyals'
+          ###### OUR CODE HERE.
+          # DIAGNOSIS
+          # attention_vec_size --> 64
+          # Hidden features: shape=(?, 20, 1, 64), batchsize X EncoderBucketSize x numHeads x hiddenStatesDim
+          # query: shape=(?, 64) hiddenStatesDim
+          # print('attention_vec_size ', attention_vec_size) 
+          # print('query ', query)
+          # print('hidden_features ', hidden_features)
+          # print('hidden_features[a]', hidden_features[a])
+          if attention_type == 'vinyals':
             y = linear(query, attention_vec_size, True)
             y = array_ops.reshape(y, [-1, 1, 1, attention_vec_size])
             # Attention mask is a softmax of v^T * tanh(...).
             s = math_ops.reduce_sum(
                 v[a] * math_ops.tanh(hidden_features[a] + y), [2, 3])
           elif attention_type == "luong":
-            ###### OUR CODE HERE.
-            # DIANOSIS
-            # attention_vec_size --> 64
-            # Hidden features: shape=(?, 20, 1, 64), batchsize X EncoderBucketSize x numHeads x hiddenStatesDim
-            # query: shape=(?, 64) hiddenStatesDim
-            # print('attention_vec_size ', attention_vec_size) 
-            # print('query ', query)
-            # print('hidden_features ', hidden_features)
-            # print('hidden_features[a]', hidden_features[a])
-
             ## IMPLEMENTATION:
             # Rather than this: new_attn = softmax(V^T * tanh(W * attention_states + U * new_state))
             # We want this: new_attn = softmax( query * W * attention_states )
@@ -204,13 +193,13 @@ def local_attention_decoder(decoder_inputs,
             # Therefore:
             y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
             s = math_ops.reduce_sum(hidden_features[a] * y, [2, 3])
-            ###### END OUR CODE
           elif attention_type == "bahdanau":
-            print("NOT DONE YET!")
-            sys.exit()
+            y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
+            s = math_ops.reduce_sum(hidden * y, [2, 3])
           else:
-            print("...pick one")
+            print("...pick attention type.")
             sys.exit()
+          ###### END OUR CODE
 
           a = nn_ops.softmax(s)
           # Now calculate the attention-weighted vector d.
