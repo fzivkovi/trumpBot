@@ -33,7 +33,8 @@ import sys
 ################
 
 # the default type.
-# attention_type = "bahdanau"
+attention_type = 'vinyals'
+# attention_type = "bahdanau" # not done yet.
 attention_type = "luong"
 
 
@@ -179,8 +180,7 @@ def local_attention_decoder(decoder_inputs,
           # bahdanau when False
 
 
-
-          if attention_type == "bahdanau":
+          if attention_type == 'vinyals'
             y = linear(query, attention_vec_size, True)
             y = array_ops.reshape(y, [-1, 1, 1, attention_vec_size])
             # Attention mask is a softmax of v^T * tanh(...).
@@ -205,6 +205,9 @@ def local_attention_decoder(decoder_inputs,
             y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
             s = math_ops.reduce_sum(hidden_features[a] * y, [2, 3])
             ###### END OUR CODE
+          elif attention_type == "bahdanau":
+            print("NOT DONE YET!")
+            sys.exit()
           else:
             print("...pick one")
             sys.exit()
