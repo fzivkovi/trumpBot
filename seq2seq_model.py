@@ -185,7 +185,7 @@ def local_attention_decoder(decoder_inputs,
     ###### OUR CODE HERE.
     ## This was needed for the extension methods.
     attention_vec_size = attn_size 
-    if config.attention_type != 'vinyals'
+    if config.attention_type != 'vinyals':
       attention_vec_size = attn_size * config.num_layers # Size of query vectors for attention.
     ###### END OUR CODE.
 
