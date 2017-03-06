@@ -22,7 +22,10 @@ import os
 import re
 import spacy
 import math
+import numpy as np
 import config
+from tqdm import *
+
 
 from six.moves import urllib
 
@@ -195,55 +198,63 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
                                             normalize_digits)
           tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
-def process_glove(vocab_list, size=4e5):
-    """
-    :param vocab_list: [vocab]
-    :return:
-    """
+def process_glove(vocab_list, gloveSize=4e5):
+  """
+  :param vocab_list: [vocab]
+  :return:
+  """
 
-    if not gfile.Exists(config.save_path + ".npz"):
-        glove_path = os.path.join(config.glove_dir, "glove.6B.{}d.txt".format(args.glove_dim))
-        # DEREK: These are initialized to zero vectors. 
-        # If not found in glove, they remain zero vectors, and are not overwritten.
-        # TODO: investigate other options. Try training them as well.
-        glove = np.zeros((len(vocab_list), args.glove_dim)) ### FIX.
+  # how to load afterwards:
+  # gloveNpz = np.load(config.save_path + '.npz','rb')
+  # all_data['embedding_matrix'] = gloveNpz['glove']
 
-        vocabNotFound = []
-        not_found = 0
-        with open(glove_path, 'r') as fh:
-            for line in tqdm(fh, total=size):
-                array = line.lstrip().rstrip().split(" ")
-                word = array[0]
-                vector = list(map(float, array[1:]))
-                if word in vocab_list:
-                    idx = vocab_list.index(word)
-                    glove[idx, :] = vector
-                elif word.capitalize() in vocab_list:
-                    idx = vocab_list.index(word.capitalize())
-                    glove[idx, :] = vector
-                elif word.lower() in vocab_list:
-                    idx = vocab_list.index(word.lower())
-                    glove[idx, :] = vector
-                elif word.upper() in vocab_list:
-                    idx = vocab_list.index(word.upper())
-                    glove[idx, :] = vector
-                else:
-                    not_found += 1
+  if not gfile.Exists(config.save_path + ".npz") or vocab_list:
 
-        for i, vocabWord in enumerate(vocab_list):
-            if sum(glove[i,:]) == 0:
-                vocabNotFound.append(vocabWord)
-                print(glove[i,:])
-                glove[i,:] = np.random.uniform(-math.sqrt(3),math.sqrt(3),config.glove_dim)
-                print(glove[i,:])
-                sys.exit()
+    if not vocab_list:
+      vocab_list = []
+      with open(os.path.join(config.working_directory,'vocab%s.all' % config.max_vocabulary_size), 'r') as file:
+        for line in file:
+          line = line.strip()
+          vocab_list.append(line)
 
+    glove_path = os.path.join(config.glove_dir, "glove.6B.{}d.txt".format(config.glove_dim))
+    # DEREK: These are initialized to zero vectors. 
+    # If not found in glove, they remain zero vectors, and are not overwritten.
+    # TODO: investigate other options. Try training them as well.
+    glove = np.zeros((len(vocab_list), config.glove_dim)) ### FIX.
 
-        print(vocabNotFound)
-        found = size - not_found
-        print("{}/{} of word vocab have corresponding vectors in {}".format(found, len(vocab_list), glove_path))
-        np.savez_compressed(config.save_path, glove=glove)
-        print("saved trimmed glove matrix at: {}".format(config.save_path))
+    vocabNotFound = []
+    not_found = 0
+    with open(glove_path, 'r') as fh:
+      for line in tqdm(fh, total=gloveSize):
+          array = line.lstrip().rstrip().split(" ")
+          word = array[0]
+          vector = list(map(float, array[1:]))
+          if word in vocab_list:
+              idx = vocab_list.index(word)
+              glove[idx, :] = vector
+          elif word.capitalize() in vocab_list:
+              idx = vocab_list.index(word.capitalize())
+              glove[idx, :] = vector
+          elif word.lower() in vocab_list:
+              idx = vocab_list.index(word.lower())
+              glove[idx, :] = vector
+          elif word.upper() in vocab_list:
+              idx = vocab_list.index(word.upper())
+              glove[idx, :] = vector
+          else:
+              not_found += 1
+
+    for i, vocabWord in enumerate(vocab_list):
+      if sum(glove[i,:]) == 0:
+        vocabNotFound.append(vocabWord)
+        glove[i,:] = np.random.uniform(-math.sqrt(3),math.sqrt(3),config.glove_dim)
+
+    print(vocabNotFound)
+    found = gloveSize - not_found
+    print("{}/{} of word vocab have corresponding vectors in {}".format(found, len(vocab_list), glove_path))
+    np.savez_compressed(config.save_path, glove=glove)
+    print("saved trimmed glove matrix at: {}".format(config.save_path))
 
 
 

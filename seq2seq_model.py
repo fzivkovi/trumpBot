@@ -395,7 +395,6 @@ def local_embedding_attention_decoder(decoder_inputs,
         initial_state_attention=initial_state_attention)
 
 
-
 def local_embedding_attention_seq2seq(encoder_inputs,
                                 decoder_inputs,
                                 cell,
@@ -616,7 +615,7 @@ class Seq2SeqModel(object):
           encoder_inputs, decoder_inputs, cell,
           num_encoder_symbols=self.vocab_size,
           num_decoder_symbols=self.vocab_size,
-          embedding_size=size,
+          embedding_size=config.glove_dim,
           output_projection=output_projection,
           feed_previous=do_decode)
 
