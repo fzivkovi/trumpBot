@@ -16,8 +16,6 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import init_ops
 
-
-
 def load_embedding():
   print('loading glove embedding matrix')
   gloveNpz = np.load(config.save_path + '.npz','rb')

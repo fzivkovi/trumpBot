@@ -22,7 +22,7 @@ working_directory = 'working_dir'
 
 # TODO: fix BUG WITH attention mechanisms for layers > 1.
 # number of LSTM layers : 1/2/3
-num_layers = 1
+num_layers = 3
 #num_layers = 3
 
 # dataset size limit; typically none : no limit

@@ -173,6 +173,7 @@ def local_attention_decoder(decoder_inputs,
     attn_length = attention_states.get_shape()[1].value
     if attn_length is None:
       attn_length = shape(attention_states)[1]
+
     attn_size = attention_states.get_shape()[2].value
 
     # To calculate W1 * h_t we use a 1-by-1 convolution, need to reshape before.
@@ -180,7 +181,11 @@ def local_attention_decoder(decoder_inputs,
         attention_states, [-1, attn_length, 1, attn_size])
     hidden_features = []
     v = []
-    attention_vec_size = attn_size  # Size of query vectors for attention.
+
+    attention_vec_size = attn_size 
+    if config.attention_type != 'vinyals'
+      attention_vec_size = attn_size * config.num_layers # Size of query vectors for attention.
+
     for a in xrange(num_heads):
       ## FFZZZZ ## THIS IS WHERE W COMES FROM.
       k = variable_scope.get_variable("AttnW_%d" % a,
@@ -462,6 +467,12 @@ def local_embedding_attention_seq2seq(encoder_inputs,
     top_states = [array_ops.reshape(e, [-1, 1, cell.output_size])
                   for e in encoder_outputs]
     attention_states = array_ops.concat(1, top_states)
+
+    # print("SDFSDFDSFDSFSDFDSFDSF\n\n")
+    # print('encoder_outputs: ', encoder_outputs)
+    # print('top_states: ', top_states)
+    # print('attention_states: ', attention_states)
+    # print('')
 
     # Decoder.
     output_size = None
