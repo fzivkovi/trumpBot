@@ -182,9 +182,12 @@ def local_attention_decoder(decoder_inputs,
     hidden_features = []
     v = []
 
+    ###### OUR CODE HERE.
+    ## This was needed for the extension methods.
     attention_vec_size = attn_size 
     if config.attention_type != 'vinyals'
       attention_vec_size = attn_size * config.num_layers # Size of query vectors for attention.
+    ###### END OUR CODE.
 
     for a in xrange(num_heads):
       ## FFZZZZ ## THIS IS WHERE W COMES FROM.
@@ -231,20 +234,14 @@ def local_attention_decoder(decoder_inputs,
             # We want this: new_attn = softmax( query * W * attention_states )
             # hidden_features = (W * attention_states)
             # Therefore:
-
-            print("\n")
-            print('query: ', query)
-            print('attention_vec_size: ', attention_vec_size)
-            print('hidden_features[a]: ',hidden_features[a])
-
+            # print("\n")
+            # print('query: ', query)
+            # print('attention_vec_size: ', attention_vec_size)
+            # print('hidden_features[a]: ',hidden_features[a])
             y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
-
-            print('y: ', y)
-            print("\n")
-
+            # print('y: ', y)
+            # print("\n")
             s = math_ops.reduce_sum(hidden_features[a] * y, [2, 3])
-
-
           elif config.attention_type == "bahdanau":
             y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
             s = math_ops.reduce_sum(hidden * y, [2, 3])
