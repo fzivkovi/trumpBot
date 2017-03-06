@@ -128,7 +128,11 @@ def train():
     print("Creating %d layers of %d units." % (config.num_layers, config.layer_size))
     model = create_model(sess, False)
 
-    summary_op = tf.summary.merge_all()
+    if config.useTensorBoard:
+      summary_op = tf.summary.merge_all()
+      writer = tf.summary.FileWriter(config.logs_path, graph=tf.get_default_graph())
+    else:
+      summary_op = None
 
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
@@ -157,8 +161,6 @@ def train():
       bucket_id = min([i for i in xrange(len(train_buckets_scale))
                        if train_buckets_scale[i] > random_number_01])
 
-      writer = tf.summary.FileWriter(config.logs_path, graph=tf.get_default_graph())
-
       # Get a batch and make a step.
       start_time = time.time()
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
@@ -169,14 +171,11 @@ def train():
       loss += step_loss / config.steps_per_checkpoint
       current_step += 1
 
-      # # Uncomment for tensorboard.
-      # if current_step % 20 == 0:
-      #   writer.add_summary(tb_summary, current_step)
-
       # Once in a while, we save checkpoint, print statistics, and run evals.
       if current_step % config.steps_per_checkpoint == 0:
-
-        summary_op = tf.summary.merge_all()
+        
+        if config.useTensorBoard:
+          writer.add_summary(tb_summary, current_step)
 
         # Print statistics for the previous epoch.
         perplexity = math.exp(loss) if loss < 300 else float('inf')
