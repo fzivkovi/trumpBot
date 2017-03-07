@@ -19,8 +19,8 @@ logs_path = '/tmp/tensorflow/trump3_%s' % attention_type
 max_train_data_size = 0
 
 # steps per checkpoint
-# 	Note : At a checkpoint, models parameters are saved, model is evaluated
-#			and results are printed
+#     Note : At a checkpoint, models parameters are saved, model is evaluated
+#            and results are printed
 steps_per_checkpoint = 150
 
 # Glove.
@@ -33,44 +33,44 @@ max_gradient_norm = 5.0
 dropout_keep = 0.7
 
 if not debug:
-	# Actual.
-	_buckets = [(5, 11), (6, 16), (19, 26), (39, 51), (59,61)]
-	# These are maximums
-	max_vocabulary_size = 20000
-	if False:
-		trainMovieQ = 'data/allMovieData.enc'
-		trainMovieA = 'data/allMovieData.dec'
-		reduced_movie_weight = 0.2
-	else:
-		trainMovieQ = None
-		trainMovieA = None
-		reduced_movie_weight = None
-	layer_size = 512
-	# Samples for sampled softmax.
-	num_samples = 256
-	batch_size = 64
-	glove_dim = glove_possible_dimensions[2]
-	# Number of RNN layers.
-	num_layers = 3
-	# folder where checkpoints, vocabulary, temporary data will be stored
-	working_directory = 'working_dir_%s_%s' % (glove_dim, attention_type)
+    # Actual.
+    _buckets = [(5, 11), (6, 16), (19, 26), (39, 51), (59,61)]
+    # These are maximums
+    max_vocabulary_size = 20000
+    if False:
+        trainMovieQ = 'data/allMovieData.enc'
+        trainMovieA = 'data/allMovieData.dec'
+        reduced_movie_weight = 0.2
+    else:
+        trainMovieQ = None
+        trainMovieA = None
+        reduced_movie_weight = None
+    layer_size = 512
+    # Samples for sampled softmax.
+    num_samples = 256
+    batch_size = 64
+    glove_dim = glove_possible_dimensions[2]
+    # Number of RNN layers.
+    num_layers = 3
+    # folder where checkpoints, vocabulary, temporary data will be stored
+    working_directory = 'working_dir_%s_%s' % (glove_dim, attention_type)
 else:
-	# When debugging, use this.
-	_buckets = [(5, 11), (6, 16)]
-	# These are maximums
-	max_vocabulary_size = 10000
-	trainMovieQ = None
-	trainMovieA = None
-	layer_size = 64
-	# Samples for sampled softmax.
-	num_samples = 64
-	batch_size = 32
-	reduced_movie_weight = None
-	glove_dim = glove_possible_dimensions[0]
-	# Number of RNN layers.
-	num_layers = 1
-	# folder where checkpoints, vocabulary, temporary data will be stored
-	working_directory = 'working_dir_debug_%s_%s' % (glove_dim, attention_type)
+    # When debugging, use this.
+    _buckets = [(5, 11), (6, 16)]
+    # These are maximums
+    max_vocabulary_size = 10000
+    trainMovieQ = None
+    trainMovieA = None
+    layer_size = 64
+    # Samples for sampled softmax.
+    num_samples = 64
+    batch_size = 32
+    reduced_movie_weight = None
+    glove_dim = glove_possible_dimensions[0]
+    # Number of RNN layers.
+    num_layers = 1
+    # folder where checkpoints, vocabulary, temporary data will be stored
+    working_directory = 'working_dir_debug_%s_%s' % (glove_dim, attention_type)
 
 max_sentence_word_count = max([b for bucket in _buckets for b in bucket])
 
@@ -84,6 +84,8 @@ if not os.path.exists(dataDir):
     sys.exit()
 if not os.path.exists(autogenVocabDir):
     os.makedirs(autogenVocabDir)
+if not os.path.exists(working_directory):
+    os.makedirs(working_directory)
 trainQ = 'trainQuestions.txt'
 trainA = 'trainAnswers.txt'
 devQ = 'validationQuestions.txt'
@@ -100,15 +102,15 @@ id_file_dev_dec = os.path.join(autogenVocabDir,devA+'_ids')
 vocabPath = os.path.join(autogenVocabDir, vocabFileName)
 
 if trainMovieQ and trainMovieA:
-	train_movie_enc = os.path.join(dataDir,trainMovieQ)
-	id_file_train_movie_enc = os.path.join(autogenVocabDir,trainMovieQ+'_ids')
-	train_movie_dec = os.path.join(dataDir,trainMovieA)
-	id_file_train_movie_dec = os.path.join(autogenVocabDir,trainMovieA+'_ids')
+    train_movie_enc = os.path.join(dataDir,trainMovieQ)
+    id_file_train_movie_enc = os.path.join(autogenVocabDir,trainMovieQ+'_ids')
+    train_movie_dec = os.path.join(dataDir,trainMovieA)
+    id_file_train_movie_dec = os.path.join(autogenVocabDir,trainMovieA+'_ids')
 else:
-	train_movie_enc = None
-	train_movie_dec = None
-	id_file_train_movie_enc = None
-	id_file_train_movie_dec = None
+    train_movie_enc = None
+    train_movie_dec = None
+    id_file_train_movie_enc = None
+    id_file_train_movie_dec = None
 
 glove_word_embeddings_path =  os.path.join(autogenVocabDir,'glove_compressed_embeddings_%s' % glove_dim)
 

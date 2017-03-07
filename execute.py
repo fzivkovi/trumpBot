@@ -38,12 +38,12 @@ def read_data():
     Could definitely have been done neater but oh well. MVP.
   """
 
-  source_path = config.train_enc
-  target_path = config.train_dec
-  movie_source_path = config.train_movie_enc
-  movie_target_path = config.train_movie_dec
-  dev_source_path = config.dev_enc
-  dev_target_path = config.dev_dec
+  source_path = config.id_file_train_enc
+  target_path = config.id_file_train_dec
+  movie_source_path = config.id_file_train_movie_enc
+  movie_target_path = config.id_file_train_movie_dec
+  dev_source_path = config.id_file_dev_enc
+  dev_target_path = config.id_file_dev_dec
 
   data_set = [[] for _ in config._buckets]
   with tf.gfile.GFile(source_path, mode="r") as source_file:
