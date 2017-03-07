@@ -250,7 +250,7 @@ def local_attention_decoder(decoder_inputs,
           ###### END OUR CODE
 
           a = nn_ops.softmax(s)
-          # a = tf.Print(a, [a], message="where I'm paying attention: ", first_n=100, summarize=200)
+          a = tf.Print(a, [a], message="where I'm paying attention: ", first_n=100, summarize=200)
 
           # Now calculate the attention-weighted vector d.
           d = math_ops.reduce_sum(
@@ -840,7 +840,7 @@ class Seq2SeqModel(object):
 
       # Encoder inputs are padded and then reversed.
       encoder_pad = [data_utils.PAD_ID] * (encoder_size - len(encoder_input))
-      encoder_inputs.append(list(reversed(encoder_input + encoder_pad)))
+      encoder_inputs.append(list(encoder_pad + reversed(encoder_input)))
 
       # Decoder inputs get an extra "GO" symbol, and are padded then.
       decoder_pad_size = decoder_size - len(decoder_input) - 1

@@ -4,9 +4,9 @@ import os
 # START IMPORTANT
 debug = False
 attention_types = ['vinyals', 'luong', 'bahdanau']
-attention_type = attention_types[1]
+attention_type = attention_types[0]
 possibleModes = ['train', 'test', 'serve']
-mode = possibleModes[0]
+mode = possibleModes[1]
 
 # TODO: Add ability for this.
 useTensorBoard = True
