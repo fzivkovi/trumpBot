@@ -9,7 +9,7 @@ possibleModes = ['train', 'test', 'serve']
 mode = possibleModes[0]
 
 # TODO: Add ability for this.
-useTensorBoard = False 
+useTensorBoard = True
 # command is: tensorboard --logdir=run1:/tmp/tensorflow/trump1_luong --port 6006
 # useful: tensorboard --inspect --logdir=/tmp/tensorflow/trump3_vinyals
 logs_path = '/tmp/tensorflow/trump3_%s' % attention_type
@@ -21,7 +21,7 @@ max_train_data_size = 0
 # steps per checkpoint
 #     Note : At a checkpoint, models parameters are saved, model is evaluated
 #            and results are printed
-steps_per_checkpoint = 150
+steps_per_checkpoint = 300
 
 # Glove.
 glove_dir = 'data/dwr'
