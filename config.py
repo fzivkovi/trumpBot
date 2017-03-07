@@ -1,11 +1,11 @@
 # my config file.
 
 # START IMPORTANT
-debug = False
+debug = True
 attention_types = ['vinyals', 'luong', 'bahdanau']
 attention_type = attention_types[0]
 possibleModes = ['train', 'test', 'serve']
-mode = possibleModes[0]
+mode = possibleModes[1]
 
 # TODO: Add ability for this.
 useTensorBoard = True
@@ -17,8 +17,6 @@ train_enc = 'data/trainQuestions.txt'
 train_dec = 'data/trainAnswers.txt'
 dev_enc = 'data/validationAnswers.txt'
 dev_dec = 'data/validationQuestions.txt'
-# folder where checkpoints, vocabulary, temporary data will be stored
-working_directory = 'working_dir'
 
 # dataset size limit; typically none : no limit
 max_train_data_size = 0
@@ -58,6 +56,8 @@ if not debug:
 	save_path = 'data/dwr/gloveWordEmbeddings_%s' % glove_dim
 	# Number of RNN layers.
 	num_layers = 3
+	# folder where checkpoints, vocabulary, temporary data will be stored
+	working_directory = 'working_dir'
 else:
 	# When debugging, use this.
 	_buckets = [(5, 11), (6, 16)]
@@ -74,10 +74,10 @@ else:
 	save_path = 'data/dwr/gloveWordEmbeddings_%s' % glove_dim
 	# Number of RNN layers.
 	num_layers = 1
-
+	# folder where checkpoints, vocabulary, temporary data will be stored
+	working_directory = 'working_dir_debug'
 
 max_sentence_word_count = max([b for bucket in _buckets for b in bucket])
-
 
 
 

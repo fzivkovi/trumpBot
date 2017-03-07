@@ -205,17 +205,15 @@ def train():
 
 
 def decode():
+  data_utils.load_en()
   with tf.Session() as sess:
     # Create model and load parameters.
     model = create_model(sess, True)
     model.batch_size = 1  # We decode one sentence at a time.
 
     # Load vocabularies.
-    enc_vocab_path = os.path.join(config.working_directory,"vocab%d.enc" % config.enc_vocabulary_size)
-    dec_vocab_path = os.path.join(config.working_directory,"vocab%d.dec" % config.dec_vocabulary_size)
-
-    enc_vocab, _ = data_utils.initialize_vocabulary(enc_vocab_path)
-    _, rev_dec_vocab = data_utils.initialize_vocabulary(dec_vocab_path)
+    vocab_path = os.path.join(config.working_directory,"vocab%d.all" % config.max_vocabulary_size)
+    vocab_word_to_id, vocab_list = data_utils.initialize_vocabulary(vocab_path)
 
     # Decode from standard input.
     sys.stdout.write("> ")
@@ -223,10 +221,11 @@ def decode():
     sentence = sys.stdin.readline()
     while sentence:
       # Get token-ids for the input sentence.
-      token_ids = data_utils.sentence_to_token_ids(tf.compat.as_bytes(sentence), enc_vocab)
+      token_ids = data_utils.sentence_to_token_ids(tf.compat.as_bytes(sentence), vocab_word_to_id)
       # Which bucket does it belong to?
-      print('Length token ids:')
-      print(len(token_ids))
+      # print('Length token ids:')
+      # print(len(token_ids))
+      print(' '.join([vocab_list[token_id] for token_id in token_ids]))
       potentialBuckets = [b for b in xrange(len(config._buckets))
                        if config._buckets[b][0] > len(token_ids)]
       if not potentialBuckets:
@@ -244,11 +243,14 @@ def decode():
                                        target_weights, bucket_id, True, None)
       # This is a greedy decoder - outputs are just argmaxes of output_logits.
       outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+      print('Untrimmed greedy outputs: %s' % ([tf.compat.as_str(vocab_list[output]) for output in outputs]))
+
       # If there is an EOS symbol in outputs, cut them at that point.
       if data_utils.EOS_ID in outputs:
         outputs = outputs[:outputs.index(data_utils.EOS_ID)]
       # Print out French sentence corresponding to outputs.
-      print(" ".join([tf.compat.as_str(rev_dec_vocab[output]) for output in outputs]))
+      print("\nTrumps response: ")
+      print(" ".join([tf.compat.as_str(vocab_list[output]) for output in outputs]))
       print("> ", end="")
       sys.stdout.flush()
       sentence = sys.stdin.readline()
@@ -281,11 +283,10 @@ def init_session(sess):
     model.batch_size = 1  # We decode one sentence at a time.
 
     # Load vocabularies.
-    enc_vocab_path = os.path.join(config.working_directory,"vocab%d.enc" % config.enc_vocabulary_size)
+    vocab_path = os.path.join(config.working_directory,"vocab%d.all" % config.max_vocabulary_size)
     dec_vocab_path = os.path.join(config.working_directory,"vocab%d.dec" % config.dec_vocabulary_size)
 
-    enc_vocab, _ = data_utils.initialize_vocabulary(enc_vocab_path)
-    _, rev_dec_vocab = data_utils.initialize_vocabulary(dec_vocab_path)
+    enc_vocab, rev_dec_vocab = data_utils.initialize_vocabulary(vocab_path)
 
     return sess, model, enc_vocab, rev_dec_vocab
 

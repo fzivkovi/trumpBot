@@ -54,18 +54,6 @@ import sys
 reload(sys)  
 sys.setdefaultencoding('utf8')
 
-def basic_tokenizer(sentence):
-  """Very basic tokenizer: split the sentence into a list of tokens."""
-  words = []
-  for space_separated_fragment in sentence.strip().split():
-    if isinstance(space_separated_fragment, str):
-        print(space_separated_fragment)
-        word = str.encode(space_separated_fragment, errors='ignore')
-    else:
-        word = space_separated_fragment  
-    words.extend(re.split(_WORD_SPLIT, word))
-
-  return [w for w in words if w]
 
 nlp = None
 def load_en():
@@ -115,6 +103,7 @@ def spacy_tokenizer(paragraph):
 def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
                       tokenizer=None, normalize_digits=True):
     
+  tokenizer = spacy_tokenizer
   vocab_list = None
   if not gfile.Exists(vocabulary_path):
     print("Creating vocabulary %s from %s" % (vocabulary_path, data_path))
@@ -168,6 +157,8 @@ def initialize_vocabulary(vocabulary_path):
 
 def sentence_to_token_ids(sentence, vocabulary, tokenizer=None, normalize_digits=True):
 
+  tokenizer = spacy_tokenizer
+
   if tokenizer:
     words = tokenizer(sentence)
   else:
@@ -180,6 +171,8 @@ def sentence_to_token_ids(sentence, vocabulary, tokenizer=None, normalize_digits
 
 def data_to_token_ids(data_path, target_path, vocabulary_path,
                       tokenizer=None, normalize_digits=True):
+
+  tokenizer = spacy_tokenizer
 
   if not data_path:
     return

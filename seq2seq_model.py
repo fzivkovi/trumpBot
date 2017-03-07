@@ -59,8 +59,7 @@ def local_extract_argmax_and_embed(embedding, output_projection=None,
                               update_embedding=True):
 
 
-  print("HEY FILIP YAY ACTUALLY USING THIS...NOW DELETE THE PRINT.")
-  sys.exit()
+  # print("HEY FILIP YAY ACTUALLY USING THIS...NOW DELETE THE PRINT.")
 
   """Get a loop_function that extracts the previous symbol and embeds it.
 
