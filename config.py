@@ -2,9 +2,9 @@
 import os
 
 # START IMPORTANT
-debug = True
+debug = False
 attention_types = ['vinyals', 'luong', 'bahdanau']
-attention_type = attention_types[0]
+attention_type = attention_types[1]
 possibleModes = ['train', 'test', 'serve']
 mode = possibleModes[0]
 
@@ -34,7 +34,7 @@ dropout_keep = 0.7
 
 if not debug:
     # Actual.
-    _buckets = [(5, 11), (6, 16), (19, 26), (39, 51), (59,61)]
+    _buckets = [(8, 9), (15, 16), (28, 29), (45, 46), (59,61)]
     # These are maximums
     max_vocabulary_size = 20000
     if False:
@@ -49,9 +49,9 @@ if not debug:
     # Samples for sampled softmax.
     num_samples = 256
     batch_size = 64
-    glove_dim = glove_possible_dimensions[2]
+    glove_dim = glove_possible_dimensions[1]
     # Number of RNN layers.
-    num_layers = 3
+    num_layers = 2
     # folder where checkpoints, vocabulary, temporary data will be stored
     working_directory = 'working_dir_%s_%s' % (glove_dim, attention_type)
 else:
