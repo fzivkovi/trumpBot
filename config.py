@@ -4,12 +4,12 @@ import os
 # START IMPORTANT
 debug = False
 attention_types = ['vinyals', 'luong', 'bahdanau']
-attention_type = attention_types[0]
+attention_type = attention_types[1]
 possibleModes = ['train', 'test', 'serve']
-mode = possibleModes[1]
+mode = possibleModes[0]
 
 # TODO: Add ability for this.
-useTensorBoard = True
+useTensorBoard = False 
 # command is: tensorboard --logdir=run1:/tmp/tensorflow/trump1_luong --port 6006
 # useful: tensorboard --inspect --logdir=/tmp/tensorflow/trump3_vinyals
 logs_path = '/tmp/tensorflow/trump3_%s' % attention_type
