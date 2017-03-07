@@ -250,7 +250,7 @@ def local_attention_decoder(decoder_inputs,
           ###### END OUR CODE
 
           a = nn_ops.softmax(s)
-          a = tf.Print(a, [a], message="where I'm paying attention: ", first_n=100, summarize=200)
+          # a = tf.Print(a, [a], message="where I'm paying attention: ", first_n=100, summarize=200)
 
           # Now calculate the attention-weighted vector d.
           d = math_ops.reduce_sum(
@@ -258,9 +258,9 @@ def local_attention_decoder(decoder_inputs,
               [1, 2])
           ds.append(array_ops.reshape(d, [-1, attn_size]))
 
-      # print("MY ATTENTION:")
+      # print("Final 'H' that gets appended.")
       # print(ds)
-      # ds[0] = tf.Print(ds[0], [ds[0]], message="where I'm paying attention: ", first_n=100, summarize=200)
+      # ds[0] = tf.Print(ds[0], [ds[0]], message=".... ", first_n=100, summarize=200)
       return ds
 
     outputs = []
@@ -671,6 +671,11 @@ class Seq2SeqModel(object):
           lambda x, y: seq2seq_f(x, y, False),
           softmax_loss_function=softmax_loss_function)
 
+      # print("HERE")
+      # print(self.losses)
+      # self.losses = tf.Print(self.losses, [self.losses], message="lossesForBuckets: ", first_n=50, summarize=100)
+      # tf.summary.histogram('lossesForBuckets', self.losses)
+
       # print(len(self.outputs[0]))
       # print(len(self.outputs[1]))
       # print(len(self.outputs[2]))
@@ -682,9 +687,11 @@ class Seq2SeqModel(object):
       # # 51
       # # 61
 
+    # print("OVER HERE")
+    # print(self.losses)
 
-
-
+    #self.losses = tf.Print(self.losses, [self.losses], message="lossesForBuckets: ", first_n=50, summarize=100)
+    # tf.summary.histogram('lossesForBuckets', self.losses)
 
 
     # Gradients and SGD update operation for training the model.
@@ -693,6 +700,7 @@ class Seq2SeqModel(object):
       self.gradient_norms = []
       self.updates = []
       opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+
       for buck in xrange(len(self.buckets)):
         gradients = tf.gradients(self.losses[buck], params)
         clipped_gradients, norm = tf.clip_by_global_norm(gradients,
@@ -708,9 +716,12 @@ class Seq2SeqModel(object):
         # print('clipped_gradients_%s' % buck, clipped_gradients)
         # sys.exit()
 
-        if config.useTensorBoard and False:
+        if config.useTensorBoard and True:
+          pass
           # tf.summary.histogram("modelWithBucketsOutputs_%s" % buck, self.outputs[buck])
-          tf.summary.scalar("modelWithBucketsLosses_%s" % buck, self.losses[buck])
+          # print(self.losses[buck])
+          # print(self.losses)
+          # tf.summary.scalar("modelWithBucketsLosses_%s" % buck, self.losses[buck])
           # tf.summary.histogram('gradients_%s' % buck, gradients)
           # tf.summary.histogram('gradient_norm_%s' % buck, norm)
           # tf.summary.histogram('clipped_gradients_%s' % buck, clipped_gradients)
@@ -764,6 +775,7 @@ class Seq2SeqModel(object):
     # Output feed: depends on whether we do a backward step or not.
     if not forward_only:
       if config.useTensorBoard:
+        # tf.summary.scalar("modelWithBucketsLosses_%s" % bucket_id, self.losses[bucket_id])
         output_feed = [self.updates[bucket_id],  # Update Op that does SGD.
                        self.gradient_norms[bucket_id],  # Gradient norm.
                        self.losses[bucket_id], summary_op]  # Loss for this batch.

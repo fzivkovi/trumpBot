@@ -171,6 +171,9 @@ def train():
       loss += step_loss / config.steps_per_checkpoint
       current_step += 1
 
+      # if current_step == 1:
+      #   summary_op = tf.summary.merge_all()
+
       # Once in a while, we save checkpoint, print statistics, and run evals.
       if current_step % config.steps_per_checkpoint == 0:
         
