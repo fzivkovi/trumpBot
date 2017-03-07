@@ -580,8 +580,7 @@ class Seq2SeqModel(object):
 
     size = config.layer_size
 
-
-    self.vocab_size = file_len(os.path.join(config.working_directory,'vocab%s.all') % config.max_vocabulary_size)
+    self.vocab_size = file_len(config.vocabPath)
     self.buckets = config._buckets
     self.batch_size = config.batch_size
     self.learning_rate = tf.Variable(float(config.learning_rate), trainable=False)

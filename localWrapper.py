@@ -18,7 +18,7 @@ from tensorflow.python.ops import init_ops
 
 def load_embedding():
   print('loading glove embedding matrix')
-  gloveNpz = np.load(config.save_path + '.npz','rb')
+  gloveNpz = np.load(config.glove_word_embeddings_path + '.npz','rb')
   embedding_matrix = tf.constant(gloveNpz['glove'], tf.float32)
   print('complete loading glove embedding matrix')
   return embedding_matrix

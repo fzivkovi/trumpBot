@@ -100,8 +100,7 @@ def spacy_tokenizer(paragraph):
     return words
 
 
-def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
-                      tokenizer=None, normalize_digits=True):
+def create_vocabulary(vocabulary_path, data_path, normalize_digits=True):
     
   tokenizer = spacy_tokenizer
   vocab_list = None
@@ -133,8 +132,9 @@ def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
     # Drops the words that had least occurences.
     vocab_list = _START_VOCAB + sorted(vocab, key=vocab.get, reverse=True)
     print('>> Full Vocabulary Size :',len(vocab_list))
-    if len(vocab_list) > max_vocabulary_size:
-      vocab_list = vocab_list[:max_vocabulary_size]
+    # We don't care for max-vocabulary. 
+    # if len(vocab_list) > max_vocabulary_size:
+    #   vocab_list = vocab_list[:max_vocabulary_size]
     with gfile.GFile(vocabulary_path, mode="wb") as vocab_file:
       for i,w in enumerate(vocab_list):
         vocab_file.write(w + b"\n")
@@ -198,14 +198,14 @@ def process_glove(vocab_list, gloveSize=4e5):
   """
 
   # how to load afterwards:
-  # gloveNpz = np.load(config.save_path + '.npz','rb')
+  # gloveNpz = np.load(config.glove_word_embeddings_path + '.npz','rb')
   # all_data['embedding_matrix'] = gloveNpz['glove']
 
-  if not gfile.Exists(config.save_path + ".npz") or vocab_list:
+  if not gfile.Exists(config.glove_word_embeddings_path + ".npz") or vocab_list:
 
     if not vocab_list:
       vocab_list = []
-      with open(os.path.join(config.working_directory,'vocab%s.all' % config.max_vocabulary_size), 'r') as file:
+      with open(config.vocabPath, 'r') as file:
         for line in file:
           line = line.strip()
           vocab_list.append(line)
@@ -246,8 +246,8 @@ def process_glove(vocab_list, gloveSize=4e5):
     print(vocabNotFound)
     found = gloveSize - not_found
     print("{}/{} of word vocab have corresponding vectors in {}".format(found, len(vocab_list), glove_path))
-    np.savez_compressed(config.save_path, glove=glove)
-    print("saved trimmed glove matrix at: {}".format(config.save_path))
+    np.savez_compressed(config.glove_word_embeddings_path, glove=glove)
+    print("saved trimmed glove matrix at: {}".format(config.glove_word_embeddings_path))
 
 
 
@@ -256,33 +256,21 @@ def prepare_custom_data():
     tokenizer = spacy_tokenizer
 
     # Create vocabularies of the appropriate sizes.
-    vocab_path = os.path.join(config.working_directory, "vocab%d.all" % config.max_vocabulary_size)
-    vocab_list = create_vocabulary(vocab_path, [config.train_movie_enc, config.train_enc, config.train_movie_dec, config.train_dec], config.max_vocabulary_size, tokenizer)
-
+    vocab_list = create_vocabulary(config.vocabPath, [config.train_movie_enc, config.train_enc, config.train_movie_dec, config.train_dec])
     process_glove(vocab_list)
 
     # Create token ids for the training data.
-    enc_train_ids_path = config.train_enc + (".ids%d" % config.max_vocabulary_size)
-    dec_train_ids_path = config.train_dec + (".ids%d" % config.max_vocabulary_size)
-    data_to_token_ids(config.train_enc, enc_train_ids_path, vocab_path, tokenizer)
-    data_to_token_ids(config.train_dec, dec_train_ids_path, vocab_path, tokenizer)
-
+    data_to_token_ids(config.train_enc, config.id_file_train_enc, config.vocabPath, tokenizer)
+    data_to_token_ids(config.train_dec, config.id_file_train_dec, config.vocabPath, tokenizer)
     if config.train_movie_enc and config.train_movie_dec:
-      enc_train_movie_ids_path = config.train_movie_enc + (".ids%d" % config.max_vocabulary_size)
-      dec_train_movie_ids_path = config.train_movie_dec + (".ids%d" % config.max_vocabulary_size)
-      data_to_token_ids(config.train_movie_enc, enc_train_movie_ids_path, vocab_path, tokenizer)
-      data_to_token_ids(config.train_movie_dec, dec_train_movie_ids_path, vocab_path, tokenizer)
-    else:
-      enc_train_movie_ids_path = None
-      dec_train_movie_ids_path = None
+      data_to_token_ids(config.train_movie_enc, config.id_file_train_movie_enc, config.vocabPath, tokenizer)
+      data_to_token_ids(config.train_movie_dec, config.id_file_train_movie_dec, config.vocabPath, tokenizer)
 
     # Create token ids for the development data.
-    enc_dev_ids_path = config.dev_enc + (".ids%d" % config.max_vocabulary_size)
-    dec_dev_ids_path = config.dev_dec + (".ids%d" % config.max_vocabulary_size)
-    data_to_token_ids(config.dev_enc, enc_dev_ids_path, vocab_path, tokenizer)
-    data_to_token_ids(config.dev_dec, dec_dev_ids_path, vocab_path, tokenizer)
+    data_to_token_ids(config.dev_enc, config.id_file_dev_enc, config.vocabPath, tokenizer)
+    data_to_token_ids(config.dev_dec, config.id_file_dev_dec, config.vocabPath, tokenizer)
 
-    return (enc_train_ids_path, enc_train_movie_ids_path, dec_train_movie_ids_path, dec_train_ids_path, enc_dev_ids_path, dec_dev_ids_path, vocab_path, vocab_path)
+    return 
 
 
 

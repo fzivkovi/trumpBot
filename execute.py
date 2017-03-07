@@ -33,30 +33,24 @@ import seq2seq_model
 import config
 
 
-def read_data(source_path, target_path, max_size=None, movie_source_path=None, movie_target_path=None, reduced_weight=None):
+def read_data():
   """Read data from source and target files and put into buckets.
-
-  Args:
-    source_path: path to the files with token-ids for the source language.
-    target_path: path to the file with token-ids for the target language;
-      it must be aligned with the source file: n-th line contains the desired
-      output for n-th line from the source_path.
-    max_size: maximum number of lines to read, all other will be ignored;
-      if 0 or None, data files will be read completely (no limit).
-
-  Returns:
-    data_set: a list of length len(config._buckets); data_set[n] contains a list of
-      (source, target) pairs read from the provided data files that fit
-      into the n-th bucket, i.e., such that len(source) < config._buckets[n][0] and
-      len(target) < config._buckets[n][1]; source and target are lists of token-ids.
+    Could definitely have been done neater but oh well. MVP.
   """
+
+  source_path = config.train_enc
+  target_path = config.train_dec
+  movie_source_path = config.train_movie_enc
+  movie_target_path = config.train_movie_dec
+  dev_source_path = config.dev_enc
+  dev_target_path = config.dev_dec
 
   data_set = [[] for _ in config._buckets]
   with tf.gfile.GFile(source_path, mode="r") as source_file:
     with tf.gfile.GFile(target_path, mode="r") as target_file:
       source, target = source_file.readline(), target_file.readline()
       counter = 0
-      while source and target and (not max_size or counter < max_size):
+      while source and target:
         counter += 1
         if counter % 100000 == 0:
           print("  reading data line %d" % counter)
@@ -66,18 +60,18 @@ def read_data(source_path, target_path, max_size=None, movie_source_path=None, m
         target_ids.append(data_utils.EOS_ID)
         for bucket_id, (source_size, target_size) in enumerate(config._buckets):
           if len(source_ids) < source_size and len(target_ids) < target_size:
-            if movie_source_path and movie_target_path and reduced_weight:
+            if movie_source_path and movie_target_path and config.reduced_weight:
               data_set[bucket_id].append([source_ids, target_ids, 1.0])
             else:
               data_set[bucket_id].append([source_ids, target_ids])
             break
         source, target = source_file.readline(), target_file.readline()
-  if movie_source_path and movie_target_path and reduced_weight:
+  if movie_source_path and movie_target_path and config.reduced_weight:
     with tf.gfile.GFile(movie_source_path, mode="r") as source_file:
       with tf.gfile.GFile(movie_target_path, mode="r") as target_file:
         source, target = source_file.readline(), target_file.readline()
         counter = 0
-        while source and target and (not max_size or counter < max_size):
+        while source and target:
           counter += 1
           if counter % 100000 == 0:
             print("  reading data line %d" % counter)
@@ -87,10 +81,35 @@ def read_data(source_path, target_path, max_size=None, movie_source_path=None, m
           target_ids.append(data_utils.EOS_ID)
           for bucket_id, (source_size, target_size) in enumerate(config._buckets):
             if len(source_ids) < source_size and len(target_ids) < target_size:
-              data_set[bucket_id].append([source_ids, target_ids, reduced_weight])
+              data_set[bucket_id].append([source_ids, target_ids, config.reduced_weight])
               break
           source, target = source_file.readline(), target_file.readline()
-  return data_set
+  merged_train_set = data_set
+
+  data_set = [[] for _ in config._buckets]
+  with tf.gfile.GFile(dev_source_path, mode="r") as source_file:
+    with tf.gfile.GFile(dev_target_path, mode="r") as target_file:
+      source, target = source_file.readline(), target_file.readline()
+      counter = 0
+      while source and target:
+        counter += 1
+        if counter % 100000 == 0:
+          print("  reading data line %d" % counter)
+          sys.stdout.flush()
+        source_ids = [int(x) for x in source.split()]
+        target_ids = [int(x) for x in target.split()]
+        target_ids.append(data_utils.EOS_ID)
+        for bucket_id, (source_size, target_size) in enumerate(config._buckets):
+          if len(source_ids) < source_size and len(target_ids) < target_size:
+            if movie_source_path and movie_target_path and config.reduced_weight:
+              data_set[bucket_id].append([source_ids, target_ids, 1.0])
+            else:
+              data_set[bucket_id].append([source_ids, target_ids])
+            break
+        source, target = source_file.readline(), target_file.readline()
+    dev_set = data_set
+
+  return dev_set, merged_train_set
 
 
 def create_model(session, forward_only):
@@ -117,7 +136,7 @@ def create_model(session, forward_only):
 def train():
   # prepare dataset
   print("Preparing data in %s" % config.working_directory)
-  enc_train, enc_movie_train, dec_movie_train, dec_train, enc_dev, dec_dev, _, _ = data_utils.prepare_custom_data()
+  data_utils.prepare_custom_data()
 
   # setup config to use BFC allocator
   config_tf = tf.ConfigProto()
@@ -138,8 +157,7 @@ def train():
     print ("Reading development and training data (limit: %d)."
            % config.max_train_data_size)
 
-    dev_set = read_data(enc_dev, dec_dev)
-    merged_train_set = read_data(enc_train, dec_train, config.max_train_data_size, enc_movie_train, dec_movie_train, reduced_weight=config.reduced_movie_weight)
+    dev_set, merged_train_set = read_data()
 
     train_bucket_sizes = [len(merged_train_set[b]) for b in xrange(len(config._buckets))]
     train_total_size = float(sum(train_bucket_sizes))
@@ -215,8 +233,7 @@ def decode():
     model.batch_size = 1  # We decode one sentence at a time.
 
     # Load vocabularies.
-    vocab_path = os.path.join(config.working_directory,"vocab%d.all" % config.max_vocabulary_size)
-    vocab_word_to_id, vocab_list = data_utils.initialize_vocabulary(vocab_path)
+    vocab_word_to_id, vocab_list = data_utils.initialize_vocabulary(config.vocabPath)
 
     # Decode from standard input.
     sys.stdout.write("> ")
@@ -286,10 +303,7 @@ def init_session(sess):
     model.batch_size = 1  # We decode one sentence at a time.
 
     # Load vocabularies.
-    vocab_path = os.path.join(config.working_directory,"vocab%d.all" % config.max_vocabulary_size)
-    dec_vocab_path = os.path.join(config.working_directory,"vocab%d.dec" % config.dec_vocabulary_size)
-
-    enc_vocab, rev_dec_vocab = data_utils.initialize_vocabulary(vocab_path)
+    enc_vocab, rev_dec_vocab = data_utils.initialize_vocabulary(config.vocabPath)
 
     return sess, model, enc_vocab, rev_dec_vocab
 
