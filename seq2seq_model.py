@@ -53,7 +53,7 @@ from tensorflow.python.util import nest
 # TODO(ebrevdo): Remove once _linear is fully deprecated.
 linear = rnn_cell._linear  # pylint: disable=protected-access
 
-from localWrapper import LocalEmbeddingWrapper
+from localWrapper import LocalEmbeddingWrapper, load_embedding
 
 def local_extract_argmax_and_embed(embedding, output_projection=None,
                               update_embedding=True):
@@ -191,10 +191,10 @@ def local_attention_decoder(decoder_inputs,
     for a in xrange(num_heads):
       ## FFZZZZ ## THIS IS WHERE W COMES FROM.
       k = variable_scope.get_variable("AttnW_%d" % a,
-                                      [1, 1, attn_size, attention_vec_size])
+                                      [1, 1, attn_size, attention_vec_size],initializer=tf.contrib.layers.xavier_initializer())
       hidden_features.append(nn_ops.conv2d(hidden, k, [1, 1, 1, 1], "SAME"))
       v.append(
-          variable_scope.get_variable("AttnV_%d" % a, [attention_vec_size]))
+          variable_scope.get_variable("AttnV_%d" % a, [attention_vec_size], initializer=tf.contrib.layers.xavier_initializer()))
 
     state = initial_state
 
@@ -369,14 +369,15 @@ def local_embedding_attention_decoder(decoder_inputs,
     proj_biases = ops.convert_to_tensor(output_projection[1], dtype=dtype)
     proj_biases.get_shape().assert_is_compatible_with([num_symbols])
 
+
   # TODO: FFFZZZZ, initialize embeddings properly.
   with variable_scope.variable_scope(
       scope or "embedding_attention_decoder", dtype=dtype) as scope:
+ 
+    # embedding = variable_scope.get_variable("embedding",
+    #                                         [num_symbols, embedding_size])
+    embedding = load_embedding()
 
-    embedding = variable_scope.get_variable("embedding",
-                                            [num_symbols, embedding_size])
-
-    # Loop_function is here. Will need to modify this doing pointer sentinel. FFFZZZ
     if feed_previous:
       # Inference mode.
       loop_function = local_extract_argmax_and_embed(
@@ -593,9 +594,9 @@ class Seq2SeqModel(object):
     softmax_loss_function = None
     # Sampled softmax only makes sense if we sample less than vocabulary size.
     if config.num_samples > 0 and config.num_samples < self.vocab_size:
-      w = tf.get_variable("proj_w", [size, self.vocab_size])
+      w = tf.get_variable("proj_w", [size, self.vocab_size],initializer=tf.contrib.layers.xavier_initializer())
       w_t = tf.transpose(w)
-      b = tf.get_variable("proj_b", [self.vocab_size])
+      b = tf.get_variable("proj_b", [self.vocab_size],initializer=tf.contrib.layers.xavier_initializer())
       output_projection = (w, b)
       if config.useTensorBoard:
         tf.summary.histogram("Output_Projection_W", w)
@@ -797,6 +798,8 @@ class Seq2SeqModel(object):
     else:
       return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
 
+  # get_batch is also called from 'decode', with batch_size one. Places in 
+  # correct format.
   def get_batch(self, data, bucket_id, trumpData=None, reducedWeight=None):
     """Get a random batch of data from the specified bucket, prepare for step.
 
