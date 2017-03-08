@@ -1,12 +1,32 @@
 # my config file.
 import os
+import argparse
+import sys
 
-# START IMPORTANT
-debug = False
+#########################################################################################
+# Argument Parser
+#########################################################################################
+def parseArguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--attention_type'  , '-a', help="Types of attention. Pick from 'vinyals', 'luong', 'bahdanau'", required=True)
+    parser.add_argument('--mode'  , '-m', help="What do you want to do? 'train', 'test'.", required=True)
+    parser.add_argument('--debug'  , '-d', help='Fast parameters.', default=True, type=bool)
+    args = parser.parse_args(sys.argv[1:])
+    return args
+
+args  = parseArguments()
+
+debug = args.debug
+attention_type = args.attention_type
+mode = args.mode
 attention_types = ['vinyals', 'luong', 'bahdanau']
-attention_type = attention_types[1]
 possibleModes = ['train', 'test', 'serve']
-mode = possibleModes[0]
+if mode not in possibleModes:
+    print "Invalid mode."
+    sys.exit()
+if attention_type not in attention_types:
+    print "Invalid attention_type."
+    sys.exit()
 
 # TODO: Add ability for this.
 useTensorBoard = True
