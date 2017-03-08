@@ -250,7 +250,8 @@ def local_attention_decoder(decoder_inputs,
           ###### END OUR CODE
 
           a = nn_ops.softmax(s)
-          #a = tf.Print(a, [a], message="where I'm paying attention: ", first_n=100, summarize=200)
+          if config.mode == 'test':
+            a = tf.Print(a, [a], message="where I'm paying attention: ", first_n=100, summarize=200)
 
           # Now calculate the attention-weighted vector d.
           d = math_ops.reduce_sum(
