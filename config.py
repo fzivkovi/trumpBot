@@ -29,7 +29,7 @@ if attention_type not in attention_types:
     sys.exit()
 
 # TODO: Add ability for this.
-useTensorBoard = True
+useTensorBoard = False
 # command is: tensorboard --logdir=run1:/tmp/tensorflow/trump1_luong --port 6006
 # useful: tensorboard --inspect --logdir=/tmp/tensorflow/trump3_vinyals
 logs_path = '/tmp/tensorflow/trump3_%s' % attention_type

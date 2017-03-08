@@ -793,7 +793,7 @@ class Seq2SeqModel(object):
       if config.useTensorBoard:
         return outputs[1], outputs[2], None, outputs[3] # Gradient norm, loss, no outputs, summary_op
       else:
-        return outputs[1], outputs[2], None # Gradient norm, loss, no outputs
+        return outputs[1], outputs[2], None, None # Gradient norm, loss, no outputs
     else:
       return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
 
