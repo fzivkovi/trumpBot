@@ -84,7 +84,7 @@ else:
     max_vocabulary_size = 10000
     trainMovieQ = None
     trainMovieA = None
-    layer_size = 64
+    layer_size = 65
     # Samples for sampled softmax.
     num_samples = 64
     batch_size = 32

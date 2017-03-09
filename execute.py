@@ -218,8 +218,11 @@ def train():
             continue
           encoder_inputs, decoder_inputs, target_weights = model.get_batch(
               dev_set, bucket_id)
-          _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
+          _, eval_loss, outputs = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, True, summary_op)
+          # print(outputs[0])
+          # print("FSDFSDFSD")
+          # print(np.shape(outputs))
           eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
           print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
         sys.stdout.flush()
@@ -262,6 +265,7 @@ def decode():
       _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, True, None)
       # This is a greedy decoder - outputs are just argmaxes of output_logits.
+      print(np.shape(output_logits))
       outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
       print('Untrimmed greedy outputs: %s' % ([tf.compat.as_str(vocab_list[output]) for output in outputs]))
 

@@ -59,7 +59,7 @@ def local_extract_argmax_and_embed(embedding, output_projection=None,
                               update_embedding=True):
 
 
-  # print("HEY FILIP YAY ACTUALLY USING THIS...NOW DELETE THE PRINT.")
+  print("HEY FILIP YAY ACTUALLY USING THIS...NOW DELETE THE PRINT.")
 
   """Get a loop_function that extracts the previous symbol and embeds it.
 
@@ -273,6 +273,7 @@ def local_attention_decoder(decoder_inputs,
       a.set_shape([None, attn_size])
     if initial_state_attention:
       attns = attention(initial_state)
+    # Only have decoder_inputs if training.
     for i, inp in enumerate(decoder_inputs):
       if i > 0:
         variable_scope.get_variable_scope().reuse_variables()
@@ -796,7 +797,33 @@ class Seq2SeqModel(object):
       else:
         return outputs[1], outputs[2], None, None # Gradient norm, loss, no outputs
     else:
+      # this is forward_only. Called from decode, and called when data is validation set.
       return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
+
+
+
+
+
+
+  def splitToyData(data, minibatch_size, shuffle):
+      data_size = len(data)/2
+      indices = np.arange(data_size)
+      if shuffle:
+          np.random.shuffle(indices)
+      for minibatch_start in np.arange(0, data_size, minibatch_size):
+          q_start = minibatch_start
+          q_end = minibatch_start + minibatch_size
+          queries = [data[i] for i in np.arange(q_start, q_end)]
+
+          a_start = minibatch_start + data_size
+          a_end = minibatch_start + minibatch_size + data_size
+          answers = [data[i] for i in np.arange(a_start, a_end)]
+
+          yield [queries, answers]
+
+
+
+
 
   # get_batch is also called from 'decode', with batch_size one. Places in 
   # correct format.
