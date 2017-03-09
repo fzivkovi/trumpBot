@@ -10,13 +10,16 @@ def parseArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--attention_type'  , '-a', help="Types of attention. Pick from 'vinyals', 'luong', 'bahdanau'", required=True)
     parser.add_argument('--mode'  , '-m', help="What do you want to do? 'train', 'test'.", required=True)
-    parser.add_argument('--debug'  , '-d', help='Fast parameters.', default=True, type=bool)
+    parser.add_argument('--full'  , '-f', help='Run a full test, not a debug test.', action='store_true')
     args = parser.parse_args(sys.argv[1:])
     return args
 
 args  = parseArguments()
 
-debug = args.debug
+if args.full:
+    debug = False
+else:
+    debug = True
 attention_type = args.attention_type
 mode = args.mode
 attention_types = ['vinyals', 'luong', 'bahdanau']
