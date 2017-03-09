@@ -50,7 +50,9 @@ steps_per_checkpoint = 300
 glove_dir = 'data/dwr'
 glove_possible_dimensions = [50,100,200,300]
 
-learning_rate = 0.5
+
+learning_rate = 0.001 # adam
+# learning_rate = 0.5 # sgd
 learning_rate_decay_factor = 0.99
 max_gradient_norm = 5.0
 dropout_keep = 0.7

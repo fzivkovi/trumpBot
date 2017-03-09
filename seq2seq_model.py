@@ -700,7 +700,8 @@ class Seq2SeqModel(object):
     if not forward_only:
       self.gradient_norms = []
       self.updates = []
-      opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+      # opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+      opt = tf.train.AdamOptimizer(self.learning_rate)
 
       for buck in xrange(len(self.buckets)):
         gradients = tf.gradients(self.losses[buck], params)
