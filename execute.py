@@ -260,8 +260,12 @@ def decode():
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
           {bucket_id: [(token_ids, [])]}, bucket_id)
       # Get output logits for the sentence.
-      _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
+      attention_where, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, True, None)
+      
+      # print(attention_where)
+      # # sys.exit()
+
       # This is a greedy decoder - outputs are just argmaxes of output_logits.
       outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
       print('Untrimmed greedy outputs: %s' % ([tf.compat.as_str(vocab_list[output]) for output in outputs]))
