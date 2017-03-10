@@ -51,7 +51,7 @@ _WORD_SPLIT = re.compile(b"([.,!?\"':;)(])")
 _DIGIT_RE = re.compile(br"\d")
 
 import sys
-reload(sys)  
+reload(sys)
 sys.setdefaultencoding('utf8')
 
 
@@ -62,7 +62,7 @@ def load_en():
     print('loading en for spacy')
     nlp = spacy.load('en')
     print('complete loading en for spacy')
-  return nlp 
+  return nlp
 
 def spacy_tokenizer(paragraph):
     # Uses spacy to parse multi-sentence paragraphs into a list of token words.
@@ -80,7 +80,7 @@ def spacy_tokenizer(paragraph):
         m = [w.strip('.') for w in m]
         m = [w for w in m if w]
         return m
-        
+
     nlp = load_en()
     doc1 = nlp(unicode(paragraph, errors='ignore'))
     for sent in doc1.sents:
@@ -267,10 +267,10 @@ def prepare_custom_data():
       data_to_token_ids(config.train_movie_dec, config.id_file_train_movie_dec, config.vocabPath, tokenizer)
 
     # Create token ids for the development data.
-    data_to_token_ids(config.dev_enc, config.id_file_dev_enc, config.vocabPath, tokenizer)
-    data_to_token_ids(config.dev_dec, config.id_file_dev_dec, config.vocabPath, tokenizer)
+    data_to_token_ids(config.dev_enc, config.dev_enc_path, config.vocabPath, tokenizer)
+    data_to_token_ids(config.dev_dec, config.dev_dec_path, config.vocabPath, tokenizer)
 
-    return 
+    return
 
 
 

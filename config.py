@@ -15,52 +15,39 @@ def parseArguments():
     return args
 
 args  = parseArguments()
+debug = False if args.full else True
 
-if args.full:
-    debug = False
-else:
-    debug = True
 attention_type = args.attention_type
+assert attention_type in ['vinyals', 'luong', 'bahdanau']
 mode = args.mode
-attention_types = ['vinyals', 'luong', 'bahdanau']
-possibleModes = ['train', 'test', 'serve']
-if mode not in possibleModes:
-    print "Invalid mode."
-    sys.exit()
-if attention_type not in attention_types:
-    print "Invalid attention_type."
-    sys.exit()
+assert mode in ['train', 'test', 'serve']
 
-# TODO: Add ability for this.
 useTensorBoard = False
+useMovieData = False
 # command is: tensorboard --logdir=run1:/tmp/tensorflow/trump1_luong --port 6006
 # useful: tensorboard --inspect --logdir=/tmp/tensorflow/trump3_vinyals
 logs_path = '/tmp/tensorflow/trump3_%s' % attention_type
-# END IMPORTANT
-
-# dataset size limit; typically none : no limit
-max_train_data_size = 0
-
-# steps per checkpoint
-#     Note : At a checkpoint, models parameters are saved, model is evaluated
-#            and results are printed
+# At each checkpoint, models params are saved, model is evaluated, and results printed
 steps_per_checkpoint = 300
 
-# Glove.
 glove_dir = 'data/dwr'
 glove_possible_dimensions = [50,100,200,300]
-
 learning_rate = 0.5
 learning_rate_decay_factor = 0.99
 max_gradient_norm = 5.0
 dropout_keep = 0.7
 
 if not debug:
-    # Actual.
+    """ Buckets: a list of pairs (I, O), where I specifies maximum input length
+        that will be processed in that bucket, and O specifies maximum output
+        length. Training instances that have inputs longer than I or outputs
+        longer than O will be pushed to the next bucket and padded accordingly.
+        We assume that the list is sorted, e.g., [(2, 4), (8, 16)].
+    """
     _buckets = [(8, 9), (15, 16), (28, 29), (45, 46), (59,61)]
     # These are maximums
     max_vocabulary_size = 20000
-    if False:
+    if useMovieData:
         trainMovieQ = 'data/allMovieData.enc'
         trainMovieA = 'data/allMovieData.dec'
         reduced_movie_weight = 0.2
@@ -73,12 +60,10 @@ if not debug:
     num_samples = 256
     batch_size = 64
     glove_dim = glove_possible_dimensions[1]
-    # Number of RNN layers.
-    num_layers = 2
+    num_layers = 2          # Number of RNN layers.
     # folder where checkpoints, vocabulary, temporary data will be stored
     working_directory = 'working_dir_%s_%s' % (glove_dim, attention_type)
 else:
-    # When debugging, use this.
     _buckets = [(5, 11), (6, 16)]
     # These are maximums
     max_vocabulary_size = 10000
@@ -90,8 +75,7 @@ else:
     batch_size = 32
     reduced_movie_weight = None
     glove_dim = glove_possible_dimensions[0]
-    # Number of RNN layers.
-    num_layers = 1
+    num_layers = 1  # Number of RNN layers.
     # folder where checkpoints, vocabulary, temporary data will be stored
     working_directory = 'working_dir_debug_%s_%s' % (glove_dim, attention_type)
 
@@ -120,8 +104,8 @@ dev_enc = os.path.join(dataDir,devQ)
 dev_dec = os.path.join(dataDir,devA)
 id_file_train_enc = os.path.join(autogenVocabDir,trainQ+'_ids')
 id_file_train_dec = os.path.join(autogenVocabDir,trainA+'_ids')
-id_file_dev_enc = os.path.join(autogenVocabDir,devQ+'_ids')
-id_file_dev_dec = os.path.join(autogenVocabDir,devA+'_ids')
+dev_enc_path = os.path.join(autogenVocabDir,devQ+'_ids')
+dev_dec_path = os.path.join(autogenVocabDir,devA+'_ids')
 vocabPath = os.path.join(autogenVocabDir, vocabFileName)
 
 if trainMovieQ and trainMovieA:
@@ -136,9 +120,6 @@ else:
     id_file_train_movie_dec = None
 
 glove_word_embeddings_path =  os.path.join(autogenVocabDir,'glove_compressed_embeddings_%s' % glove_dim)
-
-
-
 
 
 # Checking GPU.

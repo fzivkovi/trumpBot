@@ -1,8 +1,5 @@
-# 
 # We overloaded EmbeddingWrapper, filled it with the glove embeddings
 # rather than the default random initialization.
-#
-
 import tensorflow as tf
 import config
 import data_utils
@@ -66,7 +63,7 @@ class LocalEmbeddingWrapper(tf.nn.rnn_cell.RNNCell):
     return self._cell.output_size
 
   def __call__(self, inputs, state, scope=None):
-    """Run the cell on embedded inputs."""    
+    """Run the cell on embedded inputs."""
 
     with vs.variable_scope(scope or type(self).__name__):  # "EmbeddingWrapper"
       with ops.device("/cpu:0"):

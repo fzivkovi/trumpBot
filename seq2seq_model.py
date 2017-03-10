@@ -1,41 +1,19 @@
-# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-
-"""Sequence-to-sequence model with an attention mechanism."""
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+import tensorflow as tf
 import random
 
-import numpy as np
+from six.moves import zip
 from six.moves import xrange  # pylint: disable=redefined-builtin
-import tensorflow as tf
-
-from tensorflow.models.rnn.translate import data_utils
-
 import sys
 import os
 
+from tensorflow.models.rnn.translate import data_utils
 import config
 
-from six.moves import zip   
-
-from tensorflow.python import shape
-from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import control_flow_ops
@@ -46,32 +24,20 @@ from tensorflow.python.ops import rnn
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import variable_scope
 
-from tensorflow.python.ops import seq2seq 
-
 from tensorflow.python.util import nest
-
-# TODO(ebrevdo): Remove once _linear is fully deprecated.
-linear = rnn_cell._linear  # pylint: disable=protected-access
-
 from localWrapper import LocalEmbeddingWrapper, load_embedding
+
+linear = rnn_cell._linear  # pylint: disable=protected-access
 
 def local_extract_argmax_and_embed(embedding, output_projection=None,
                               update_embedding=True):
-
-
-  print("HEY FILIP YAY ACTUALLY USING THIS...NOW DELETE THE PRINT.")
-
   """Get a loop_function that extracts the previous symbol and embeds it.
-
-  Args:
     embedding: embedding tensor for symbols.
     output_projection: None or a pair (W, B). If provided, each fed previous
       output will first be multiplied by W and added B.
     update_embedding: Boolean; if False, the gradients will not propagate
       through the embeddings.
-
-  Returns:
-    A loop function.
+  Returns: a loop function.
   """
   def loop_function(prev, _):
     if output_projection is not None:
@@ -86,110 +52,43 @@ def local_extract_argmax_and_embed(embedding, output_projection=None,
     return emb_prev
   return loop_function
 
-
-
-def local_attention_decoder(decoder_inputs,
-                      initial_state,
-                      attention_states,
-                      cell,
-                      output_size=None,
-                      num_heads=1,
-                      loop_function=None,
-                      dtype=None,
-                      scope=None,
-                      initial_state_attention=False):
-  """RNN decoder with attention for the sequence-to-sequence model.
-
-  In this context "attention" means that, during decoding, the RNN can look up
-  information in the additional tensor attention_states, and it does this by
-  focusing on a few entries from the tensor. This model has proven to yield
-  especially good results in a number of sequence-to-sequence tasks. This
-  implementation is based on http://arxiv.org/abs/1412.7449 (see below for
-  details). It is recommended for complex sequence-to-sequence tasks.
-
-  Args:
-    decoder_inputs: A list of 2D Tensors [batch_size x input_size].
-    initial_state: 2D Tensor [batch_size x cell.state_size].
-    attention_states: 3D Tensor [batch_size x attn_length x attn_size].
-    cell: rnn_cell.RNNCell defining the cell function and size.
-    output_size: Size of the output vectors; if None, we use cell.output_size.
-    num_heads: Number of attention heads that read from attention_states.
-    loop_function: If not None, this function will be applied to i-th output
-      in order to generate i+1-th input, and decoder_inputs will be ignored,
-      except for the first element ("GO" symbol). This can be used for decoding,
-      but also for training to emulate http://arxiv.org/abs/1506.03099.
-      Signature -- loop_function(prev, i) = next
-        * prev is a 2D Tensor of shape [batch_size x output_size],
-        * i is an integer, the step number (when advanced control is needed),
-        * next is a 2D Tensor of shape [batch_size x input_size].
-    dtype: The dtype to use for the RNN initial state (default: tf.float32).
-    scope: VariableScope for the created subgraph; default: "attention_decoder".
-    initial_state_attention: If False (default), initial attentions are zero.
-      If True, initialize the attentions from the initial state and attention
-      states -- useful when we wish to resume decoding from a previously
-      stored decoder state and attention states.
-
-  Returns:
+def local_attention_decoder(decoder_inputs, initial_state, attention_states,
+        cell, output_size, num_heads=1, loop_function=None, dtype=None,
+        scope=None, initial_state_attention=False):
+  """ Returns:
     A tuple of the form (outputs, state), where:
       outputs: A list of the same length as decoder_inputs of 2D Tensors of
         shape [batch_size x output_size]. These represent the generated outputs.
-        Output i is computed from input i (which is either the i-th element
-        of decoder_inputs or loop_function(output {i-1}, i)) as follows.
-        First, we run the cell on a combination of the input and previous
-        attention masks:
-          cell_output, new_state = cell(linear(input, prev_attn), prev_state).
-        Then, we calculate new attention masks:
-          new_attn = softmax(V^T * tanh(W * attention_states + U * new_state))
-        and then we calculate the output:
-          output = linear(cell_output, new_attn).
       state: The state of each decoder cell the final time-step.
         It is a 2D Tensor of shape [batch_size x cell.state_size].
-
-  Raises:
-    ValueError: when num_heads is not positive, there are no inputs, shapes
-      of attention_states are not set, or input size cannot be inferred
-      from the input.
   """
-
-  # print(decoder_inputs)
-  # print(len(decoder_inputs))
-
   if not decoder_inputs:
     raise ValueError("Must provide at least 1 input to attention decoder.")
-  if num_heads < 1:
-    raise ValueError("With less than 1 heads, use a non-attention decoder.")
   if attention_states.get_shape()[2].value is None:
     raise ValueError("Shape[2] of attention_states must be known: %s"
                      % attention_states.get_shape())
-  if output_size is None:
-    output_size = cell.output_size
 
-  with variable_scope.variable_scope(
-      scope or "attention_decoder", dtype=dtype) as scope:
+  with variable_scope.variable_scope("attention_decoder", dtype=dtype) as scope:
     dtype = scope.dtype
 
     batch_size = array_ops.shape(decoder_inputs[0])[0]  # Needed for reshaping.
     attn_length = attention_states.get_shape()[1].value
     if attn_length is None:
-      attn_length = shape(attention_states)[1]
+      attn_length = array_ops.shape(attention_states)[1]
 
     attn_size = attention_states.get_shape()[2].value
-
     # To calculate W1 * h_t we use a 1-by-1 convolution, need to reshape before.
     hidden = array_ops.reshape(
         attention_states, [-1, attn_length, 1, attn_size])
     hidden_features = []
     v = []
 
-    ###### OUR CODE HERE.
-    ## This was needed for the extension methods.
-    attention_vec_size = attn_size 
+    attention_vec_size = attn_size   # represents hidden state size
     if config.attention_type != 'vinyals':
       attention_vec_size = attn_size * config.num_layers # Size of query vectors for attention.
-    ###### END OUR CODE.
 
     for a in xrange(num_heads):
-      ## FFZZZZ ## THIS IS WHERE W COMES FROM.
+      # THIS IS WHERE W COMES FROM.
       k = variable_scope.get_variable("AttnW_%d" % a,
                                       [1, 1, attn_size, attention_vec_size],initializer=tf.contrib.layers.xavier_initializer())
       hidden_features.append(nn_ops.conv2d(hidden, k, [1, 1, 1, 1], "SAME"))
@@ -199,7 +98,13 @@ def local_attention_decoder(decoder_inputs,
     state = initial_state
 
     def attention(query):
-      """Put attention masks on hidden using hidden_features and query."""
+      """attention masks:
+        cell_output, new_state = cell(linear(input, prev_attn), prev_state).
+      Then, we calculate new attention masks:
+        new_attn = softmax(V^T * tanh(W * attention_states + U * new_state))
+      and then we calculate the output:
+        output = linear(cell_output, new_attn).
+      """
       ds = []  # Results of attention reads will be stored here.
       if nest.is_sequence(query):  # If the query is a tuple, flatten it.
         query_list = nest.flatten(query)
@@ -208,19 +113,12 @@ def local_attention_decoder(decoder_inputs,
           if ndims:
             assert ndims == 2
         query = array_ops.concat(1, query_list)
-      # print('num_heads',num_heads)
       for a in xrange(num_heads):
         with variable_scope.variable_scope("Attention_%d" % a):
 
           ###### OUR CODE HERE.
-          # DIAGNOSIS
-          # attention_vec_size --> 64
           # Hidden features: shape=(?, 20, 1, 64), batchsize X EncoderBucketSize x numHeads x hiddenStatesDim
-          # query: shape=(?, 64) hiddenStatesDim
-          # print('attention_vec_size ', attention_vec_size) 
-          # print('query ', query)
-          # print('hidden_features ', hidden_features)
-          # print('hidden_features[a]', hidden_features[a])
+          # query.shape=(?, 64) hiddenStatesDim
           if config.attention_type == 'vinyals':
             y = linear(query, attention_vec_size, True)
             y = array_ops.reshape(y, [-1, 1, 1, attention_vec_size])
@@ -228,40 +126,23 @@ def local_attention_decoder(decoder_inputs,
             s = math_ops.reduce_sum(
                 v[a] * math_ops.tanh(hidden_features[a] + y), [2, 3])
           elif config.attention_type == "luong":
-            ## IMPLEMENTATION:
-            # Rather than this: new_attn = softmax(V^T * tanh(W * attention_states + U * new_state))
-            # We want this: new_attn = softmax( query * W * attention_states )
+            # attention = softmax( query * W * attention_states )
             # hidden_features = (W * attention_states)
-            # Therefore:
-            # print("\n")
-            # print('query: ', query)
-            # print('attention_vec_size: ', attention_vec_size)
-            # print('hidden_features[a]: ',hidden_features[a])
             y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
-            # print('y: ', y)
-            # print("\n")
             s = math_ops.reduce_sum(hidden_features[a] * y, [2, 3])
           elif config.attention_type == "bahdanau":
             y = array_ops.reshape(query, [-1, 1, 1, attention_vec_size])
             s = math_ops.reduce_sum(hidden * y, [2, 3])
-          else:
-            print("...pick attention type.")
-            sys.exit()
-          ###### END OUR CODE
 
           a = nn_ops.softmax(s)
-          if config.mode == 'test':
-            a = tf.Print(a, [a], message="where I'm paying attention: ", first_n=100, summarize=200)
+          # if config.mode == 'test':
+          #   a = tf.Print(a, [a], message="where I'm paying attention: ", first_n=100, summarize=200)
 
           # Now calculate the attention-weighted vector d.
           d = math_ops.reduce_sum(
               array_ops.reshape(a, [-1, attn_length, 1, 1]) * hidden,
               [1, 2])
           ds.append(array_ops.reshape(d, [-1, attn_size]))
-
-      # print("Final 'H' that gets appended.")
-      # print(ds)
-      # ds[0] = tf.Print(ds[0], [ds[0]], message=".... ", first_n=100, summarize=200)
       return ds
 
     outputs = []
@@ -290,8 +171,7 @@ def local_attention_decoder(decoder_inputs,
       cell_output, state = cell(x, state)
       # Run the attention mechanism.
       if i == 0 and initial_state_attention:
-        with variable_scope.variable_scope(variable_scope.get_variable_scope(),
-                                           reuse=True):
+        with variable_scope.variable_scope(variable_scope.get_variable_scope(), reuse=True):
           attns = attention(state)
       else:
         attns = attention(state)
@@ -304,65 +184,22 @@ def local_attention_decoder(decoder_inputs,
 
   return outputs, state
 
-
-def local_embedding_attention_decoder(decoder_inputs,
-                                initial_state,
-                                attention_states,
-                                cell,
-                                num_symbols,
-                                embedding_size,
-                                num_heads=1,
-                                output_size=None,
-                                output_projection=None,
-                                feed_previous=False,
-                                update_embedding_for_previous=True,
-                                dtype=None,
-                                scope=None,
-                                initial_state_attention=False):
-  """RNN decoder with embedding and attention and a pure-decoding option.
-
-  Args:
-    decoder_inputs: A list of 1D batch-sized int32 Tensors (decoder inputs).
-    initial_state: 2D Tensor [batch_size x cell.state_size].
-    attention_states: 3D Tensor [batch_size x attn_length x attn_size].
-    cell: rnn_cell.RNNCell defining the cell function.
-    num_symbols: Integer, how many symbols come into the embedding.
-    embedding_size: Integer, the length of the embedding vector for each symbol.
-    num_heads: Number of attention heads that read from attention_states.
-    output_size: Size of the output vectors; if None, use output_size.
-    output_projection: None or a pair (W, B) of output projection weights and
-      biases; W has shape [output_size x num_symbols] and B has shape
-      [num_symbols]; if provided and feed_previous=True, each fed previous
-      output will first be multiplied by W and added B.
-    OWN WORDS: FEED_PREVIOUS MODE is INFERENCE! If true, predicting.
-    feed_previous: Boolean; if True, only the first of decoder_inputs will be
-      used (the "GO" symbol), and all other decoder inputs will be generated by:
-        next = embedding_lookup(embedding, argmax(previous_output)),
-      In effect, this implements a greedy decoder. It can also be used
-      during training to emulate http://arxiv.org/abs/1506.03099.
-      If False, decoder_inputs are used as given (the standard decoder case).
-    update_embedding_for_previous: Boolean; if False and feed_previous=True,
-      only the embedding for the first symbol of decoder_inputs (the "GO"
-      symbol) will be updated by back propagation. Embeddings for the symbols
-      generated from the decoder itself remain unchanged. This parameter has
-      no effect if feed_previous=False.
-    dtype: The dtype to use for the RNN initial states (default: tf.float32).
-    scope: VariableScope for the created subgraph; defaults to
-      "embedding_attention_decoder".
+def local_decoder(decoder_inputs, initial_state,
+        attention_states, cell, num_symbols, embedding_size,
+        num_heads=1, output_size=None, output_projection=None,
+        feed_previous=False, update_embedding_for_previous=True,
+        dtype=None, scope=None, initial_state_attention=False):
+  """ FEED_PREVIOUS = True means INFERENCE mode where we make predictions
+      The default of False is for TRAINING mode.
     initial_state_attention: If False (default), initial attentions are zero.
       If True, initialize the attentions from the initial state and attention
       states -- useful when we wish to resume decoding from a previously
       stored decoder state and attention states.
 
-  Returns:
-    A tuple of the form (outputs, state), where:
-      outputs: A list of the same length as decoder_inputs of 2D Tensors with
-        shape [batch_size x output_size] containing the generated outputs.
+  Returns: outputs: A list of the same length as decoder_inputs, each element
+    in the list is a 2D Tensors with shape [batch_size x output_size] containing the generated outputs.
       state: The state of each decoder cell at the final time-step.
         It is a 2D Tensor of shape [batch_size x cell.state_size].
-
-  Raises:
-    ValueError: When output_projection has the wrong shape.
   """
 
   if output_size is None:
@@ -371,22 +208,15 @@ def local_embedding_attention_decoder(decoder_inputs,
     proj_biases = ops.convert_to_tensor(output_projection[1], dtype=dtype)
     proj_biases.get_shape().assert_is_compatible_with([num_symbols])
 
-
-  # TODO: FFFZZZZ, initialize embeddings properly.
   with variable_scope.variable_scope(
       scope or "embedding_attention_decoder", dtype=dtype) as scope:
- 
-    # embedding = variable_scope.get_variable("embedding",
-    #                                         [num_symbols, embedding_size])
     embedding = load_embedding()
 
-    if feed_previous:
-      # Inference mode.
+    if feed_previous:  # Inference mode.
       loop_function = local_extract_argmax_and_embed(
           embedding, output_projection,
           update_embedding_for_previous)
-    else:
-      # Training mode.
+    else:               # Training mode.
       loop_function = None
     emb_inp = [
         embedding_ops.embedding_lookup(embedding, i) for i in decoder_inputs]
@@ -401,59 +231,11 @@ def local_embedding_attention_decoder(decoder_inputs,
         initial_state_attention=initial_state_attention)
 
 
-def local_embedding_attention_seq2seq(encoder_inputs,
-                                decoder_inputs,
-                                cell,
-                                num_encoder_symbols,
-                                num_decoder_symbols,
-                                embedding_size,
-                                num_heads=1,
-                                output_projection=None,
-                                feed_previous=False,
-                                dtype=None,
-                                scope=None,
-                                initial_state_attention=False):
-  """Embedding sequence-to-sequence model with attention.
+def local_seq2seq(encoder_inputs, decoder_inputs,
+      cell, num_encoder_symbols, num_decoder_symbols, embedding_size,
+      num_heads=1, output_projection=None, feed_previous=False,
+      dtype=None, scope=None, initial_state_attention=False):
 
-  This model first embeds encoder_inputs by a newly created embedding (of shape
-  [num_encoder_symbols x input_size]). Then it runs an RNN to encode
-  embedded encoder_inputs into a state vector. It keeps the outputs of this
-  RNN at every step to use for attention later. Next, it embeds decoder_inputs
-  by another newly created embedding (of shape [num_decoder_symbols x
-  input_size]). Then it runs attention decoder, initialized with the last
-  encoder state, on embedded decoder_inputs and attending to encoder outputs.
-
-  Args:
-    encoder_inputs: A list of 1D int32 Tensors of shape [batch_size].
-    decoder_inputs: A list of 1D int32 Tensors of shape [batch_size].
-    cell: rnn_cell.RNNCell defining the cell function and size.
-    num_encoder_symbols: Integer; number of symbols on the encoder side.
-    num_decoder_symbols: Integer; number of symbols on the decoder side.
-    embedding_size: Integer, the length of the embedding vector for each symbol.
-    num_heads: Number of attention heads that read from attention_states.
-    output_projection: None or a pair (W, B) of output projection weights and
-      biases; W has shape [output_size x num_decoder_symbols] and B has
-      shape [num_decoder_symbols]; if provided and feed_previous=True, each
-      fed previous output will first be multiplied by W and added B.
-    feed_previous: Boolean or scalar Boolean Tensor; if True, only the first
-      of decoder_inputs will be used (the "GO" symbol), and all other decoder
-      inputs will be taken from previous outputs (as in embedding_rnn_decoder).
-      If False, decoder_inputs are used as given (the standard decoder case).
-    dtype: The dtype of the initial RNN state (default: tf.float32).
-    scope: VariableScope for the created subgraph; defaults to
-      "embedding_attention_seq2seq".
-    initial_state_attention: If False (default), initial attentions are zero.
-      If True, initialize the attentions from the initial state and attention
-      states.
-
-  Returns:
-    A tuple of the form (outputs, state), where:
-      outputs: A list of the same length as decoder_inputs of 2D Tensors with
-        shape [batch_size x num_decoder_symbols] containing the generated
-        outputs.
-      state: The state of each decoder cell at the final time-step.
-        It is a 2D Tensor of shape [batch_size x cell.state_size].
-  """
   with variable_scope.variable_scope(
       scope or "embedding_attention_seq2seq", dtype=dtype) as scope:
     dtype = scope.dtype
@@ -469,12 +251,6 @@ def local_embedding_attention_seq2seq(encoder_inputs,
                   for e in encoder_outputs]
     attention_states = array_ops.concat(1, top_states)
 
-    # print("SDFSDFDSFDSFSDFDSFDSF\n\n")
-    # print('encoder_outputs: ', encoder_outputs)
-    # print('top_states: ', top_states)
-    # print('attention_states: ', attention_states)
-    # print('')
-
     # Decoder.
     output_size = None
     if output_projection is None:
@@ -482,7 +258,7 @@ def local_embedding_attention_seq2seq(encoder_inputs,
       output_size = num_decoder_symbols
 
     if isinstance(feed_previous, bool):
-      return local_embedding_attention_decoder(
+      return local_decoder(
           decoder_inputs,
           encoder_state,
           attention_states,
@@ -500,13 +276,10 @@ def local_embedding_attention_seq2seq(encoder_inputs,
       reuse = None if feed_previous_bool else True
       with variable_scope.variable_scope(
           variable_scope.get_variable_scope(), reuse=reuse) as scope:
-        outputs, state = local_embedding_attention_decoder(
-            decoder_inputs,
-            encoder_state,
-            attention_states,
-            cell,
-            num_decoder_symbols,
-            embedding_size,
+        outputs, state = local_decoder(
+            decoder_inputs, encoder_state,
+            attention_states, cell,
+            num_decoder_symbols, embedding_size,
             num_heads=num_heads,
             output_size=output_size,
             output_projection=output_projection,
@@ -529,50 +302,8 @@ def local_embedding_attention_seq2seq(encoder_inputs,
                                     flat_sequence=state_list)
     return outputs_and_state[:outputs_len], state
 
-
-##############
-
-
-
-
 class Seq2SeqModel(object):
-  """Sequence-to-sequence model with attention and for multiple buckets.
-
-  This class implements a multi-layer recurrent neural network as encoder,
-  and an attention-based decoder. This is the same as the model described in
-  this paper: http://arxiv.org/abs/1412.7449 - please look there for details,
-  or into the seq2seq library for complete model implementation.
-  This class also allows to use GRU cells in addition to LSTM cells, and
-  sampled softmax to handle large output vocabulary size. A single-layer
-  version of this model, but with bi-directional encoder, was presented in
-    http://arxiv.org/abs/1409.0473
-  and sampled softmax is described in Section 3 of the following paper.
-    http://arxiv.org/abs/1412.2007
-  """
-
   def __init__(self, use_lstm=False, forward_only=False):
-    """Create the model.
-
-    Args:
-      vocab_size: actual size of vocab.
-      buckets: a list of pairs (I, O), where I specifies maximum input length
-        that will be processed in that bucket, and O specifies maximum output
-        length. Training instances that have inputs longer than I or outputs
-        longer than O will be pushed to the next bucket and padded accordingly.
-        We assume that the list is sorted, e.g., [(2, 4), (8, 16)].
-      size: number of units in each layer of the model.
-      num_layers: number of layers in the model.
-      max_gradient_norm: gradients will be clipped to maximally this norm.
-      batch_size: the size of the batches used during training;
-        the model construction is independent of batch_size, so it can be
-        changed after initialization if this is convenient, e.g., for decoding.
-      learning_rate: learning rate to start with.
-      learning_rate_decay_factor: decay learning rate by this much when needed.
-      use_lstm: if true, we use LSTM cells instead of GRU cells.
-      num_samples: number of samples for sampled softmax.
-      forward_only: if set, we do not construct the backward pass in the model.
-    """
-
     # Just read the lengths of the vocab files, easiest way to determine.
     def file_len(fname):
       with open(fname) as f:
@@ -620,9 +351,7 @@ class Seq2SeqModel(object):
 
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
-      # return local_embedding_attention_seq2seq(
-      # return tf.nn.seq2seq.embedding_attention_seq2seq(
-      return local_embedding_attention_seq2seq(
+      return local_seq2seq(
           encoder_inputs, decoder_inputs, cell,
           num_encoder_symbols=self.vocab_size,
           num_decoder_symbols=self.vocab_size,
@@ -647,12 +376,6 @@ class Seq2SeqModel(object):
     targets = [self.decoder_inputs[i + 1]
                for i in xrange(len(self.decoder_inputs) - 1)]
 
-
-
-
-
-
-
     # Training outputs and losses.
     if forward_only:
       self.outputs, self.losses = tf.nn.seq2seq.model_with_buckets(
@@ -667,34 +390,14 @@ class Seq2SeqModel(object):
               for output in self.outputs[buck]
           ]
     else:
+      # Outputs is a list of tensors, where the tensors have one for each output word
       self.outputs, self.losses = tf.nn.seq2seq.model_with_buckets(
           self.encoder_inputs, self.decoder_inputs, targets,
           self.target_weights, self.buckets,
           lambda x, y: seq2seq_f(x, y, False),
           softmax_loss_function=softmax_loss_function)
-
-      # print("HERE")
-      # print(self.losses)
-      # self.losses = tf.Print(self.losses, [self.losses], message="lossesForBuckets: ", first_n=50, summarize=100)
-      # tf.summary.histogram('lossesForBuckets', self.losses)
-
-      # print(len(self.outputs[0]))
-      # print(len(self.outputs[1]))
-      # print(len(self.outputs[2]))
-      # print(len(self.outputs[3]))
-      # print(len(self.outputs[4]))
-      # # 11
-      # # 16
-      # # 26
-      # # 51
-      # # 61
-
-    # print("OVER HERE")
-    # print(self.losses)
-
     #self.losses = tf.Print(self.losses, [self.losses], message="lossesForBuckets: ", first_n=50, summarize=100)
     # tf.summary.histogram('lossesForBuckets', self.losses)
-
 
     # Gradients and SGD update operation for training the model.
     params = tf.trainable_variables()
@@ -718,7 +421,7 @@ class Seq2SeqModel(object):
         # print('clipped_gradients_%s' % buck, clipped_gradients)
         # sys.exit()
 
-        if config.useTensorBoard and True:
+        if config.useTensorBoard:
           pass
           # tf.summary.histogram("modelWithBucketsOutputs_%s" % buck, self.outputs[buck])
           # print(self.losses[buck])
@@ -732,23 +435,15 @@ class Seq2SeqModel(object):
 
   def step(self, session, encoder_inputs, decoder_inputs, target_weights,
            bucket_id, forward_only, summary_op):
-    """Run a step of the model feeding the given inputs.
-
+    """Run a step of the model feeding the given inputs
     Args:
-      session: tensorflow session to use.
-      encoder_inputs: list of numpy int vectors to feed as encoder inputs.
-      decoder_inputs: list of numpy int vectors to feed as decoder inputs.
+      encoder and decoder_inputs: list of numpy int vectors to feed in
       target_weights: list of numpy float vectors to feed as target weights.
       bucket_id: which bucket of the model to use.
       forward_only: whether to do the backward step or only forward.
-
     Returns:
-      A triple consisting of gradient norm (or None if we did not do backward),
+      A tuple consisting of gradient norm (or None if we did not do backward),
       average perplexity, and the outputs.
-
-    Raises:
-      ValueError: if length of encoder_inputs, decoder_inputs, or
-        target_weights disagrees with bucket size for the specified bucket_id.
     """
     # Check if the sizes match.
     encoder_size, decoder_size = self.buckets[bucket_id]
@@ -800,32 +495,7 @@ class Seq2SeqModel(object):
       # this is forward_only. Called from decode, and called when data is validation set.
       return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
 
-
-
-
-
-
-  def splitToyData(data, minibatch_size, shuffle):
-      data_size = len(data)/2
-      indices = np.arange(data_size)
-      if shuffle:
-          np.random.shuffle(indices)
-      for minibatch_start in np.arange(0, data_size, minibatch_size):
-          q_start = minibatch_start
-          q_end = minibatch_start + minibatch_size
-          queries = [data[i] for i in np.arange(q_start, q_end)]
-
-          a_start = minibatch_start + data_size
-          a_end = minibatch_start + minibatch_size + data_size
-          answers = [data[i] for i in np.arange(a_start, a_end)]
-
-          yield [queries, answers]
-
-
-
-
-
-  # get_batch is also called from 'decode', with batch_size one. Places in 
+  # get_batch is also called from 'decode', with batch_size one. Places in
   # correct format.
   def get_batch(self, data, bucket_id, trumpData=None, reducedWeight=None):
     """Get a random batch of data from the specified bucket, prepare for step.
@@ -833,28 +503,43 @@ class Seq2SeqModel(object):
     To feed data in step(..) it must be a list of batch-major vectors, while
     data here contains single length-major cases. So the main logic of this
     function is to re-index data cases to be in the proper format for feeding.
-
-    Args:
+    ARGS:
       data: a tuple of size len(self.buckets) in which each element contains
         lists of pairs of input and output data that we use to create a batch.
       bucket_id: integer, which bucket to get the batch for.
-
     Returns:
       The triple (encoder_inputs, decoder_inputs, target_weights) for
       the constructed batch that has the proper format to call step(...) later.
     """
     encoder_size, decoder_size = self.buckets[bucket_id]
     encoder_inputs, decoder_inputs = [], []
-
     # Get a random batch of encoder and decoder inputs from data,
     # pad them if needed, reverse encoder inputs and add GO to decoder.
-    for _ in xrange(self.batch_size):
 
+    # batch_size = self.batch_size
+    # bucket_data = data[bucket_id]
+    # encoder_data, decoder_data = bucket_data
+
+    # bucket_len = len(encoder_data)
+    # remainder = bucket_len % batch_size
+    # divisible_bucket_len = bucket_len - remainder
+
+    # indices = np.arange(bucket_len)
+    # if shuffle:
+    #   np.random.shuffle(indices)
+    # for batch_start in np.arange(0, divisible_bucket_len, batch_size)
+    #   q_start = minibatch_start
+    #   q_end = minibatch_start + minibatch_size
+    #   queries = [encoder_data[i] for i in np.arange(q_start, q_end)]
+
+    #   a_start = minibatch_start + data_size
+    #   a_end = minibatch_start + minibatch_size + data_size
+    #   answers = [decoder_data[i] for i in np.arange(a_start, a_end)]
+
+    #   yield [queries, answers]
+
+    for _ in xrange(self.batch_size):
       indexToInclude = random.choice(range(len(data[bucket_id])))
-      # print('indexToInclude ')
-      # print(indexToInclude)
-      # print('data[bucket_id][indexToInclude] ')
-      # print(data[bucket_id][indexToInclude])
 
       inputs = data[bucket_id][indexToInclude]
       if len(inputs) == 2:
@@ -862,9 +547,6 @@ class Seq2SeqModel(object):
         data_weight = 1.0
       else:
         encoder_input, decoder_input, data_weight = inputs
-
-      # print('data_weight')
-      # print(data_weight)
 
       # Encoder inputs are padded and then reversed.
       encoder_pad = [data_utils.PAD_ID] * (encoder_size - len(encoder_input))
@@ -884,8 +566,12 @@ class Seq2SeqModel(object):
     # Batch encoder inputs are just re-indexed encoder_inputs.
     for length_idx in xrange(encoder_size):
       batch_encoder_inputs.append(
-          np.array([encoder_inputs[batch_idx][length_idx]
-                    for batch_idx in xrange(self.batch_size)], dtype=np.int32))
+         np.array([encoder_inputs[batch_idx][length_idx]
+                   for batch_idx in xrange(self.batch_size)], dtype=np.int32))
+        # encoder_batch = []
+        # for batch_idx in xrange(self.batch_size):
+        #   encoder_batch.append(encoder_inputs[batch_idx][length_idx])
+        # np.array(thing, dtype=np.int32))
 
     # Batch decoder inputs are re-indexed decoder_inputs, we create weights.
     for length_idx in xrange(decoder_size):
@@ -904,3 +590,9 @@ class Seq2SeqModel(object):
           batch_weight[batch_idx] = 0.0
       batch_weights.append(batch_weight)
     return batch_encoder_inputs, batch_decoder_inputs, batch_weights
+
+def apply_padding(data, bucket_size):
+  pass
+  # data < bucket_size:
+    # add some zeros
+  return data
