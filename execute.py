@@ -210,6 +210,28 @@ def test():
       # Get output logits for the sentence.
       _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, True, None)
+
+      beam_search = False
+      if beam_search:
+        k = output_logits[0]
+        paths = []
+        for kk in range(beam_size):
+            paths.append([])
+        curr = range(beam_size) = [0,1,2,3,4]
+        num_steps = len(path)
+        # start at (num_steps - 1), go to 0, count backwards
+        for i in range(num_steps-1, -1, -1):
+            for kk in range(beam_size):
+              paths[kk].append(symbol[i][curr[kk]])
+              curr[kk] = path[i][curr[kk]]
+        recos = set()
+        print "Replies --------------------------------------->"
+        for kk in range(beam_size):
+            foutputs = [int(logit)  for logit in paths[kk][::-1]]
+
+
+
+
       print(np.shape(output_logits))         # This is a greedy decoder - outputs are just argmaxes of output_logits.
       outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
       print('Untrimmed greedy outputs: %s' % ([tf.compat.as_str(vocab_list[output]) for output in outputs]))
