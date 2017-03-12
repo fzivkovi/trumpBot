@@ -88,6 +88,8 @@ def local_extract_argmax_and_embed(embedding, output_projection=None,
   return loop_function
 
 
+
+
 def local_attention_decoder(decoder_inputs,
                       initial_state,
                       attention_states,
@@ -252,6 +254,7 @@ def local_attention_decoder(decoder_inputs,
       outputs.append(output)
 
   return outputs, state
+
 
 
 def local_embedding_attention_decoder(decoder_inputs,
@@ -460,13 +463,11 @@ def local_model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
                                     decoder_inputs[:bucket[1]])
         outputs.append(bucket_outputs)
         if per_example_loss:
-          losses.append(seq2eqFile.sequence_loss_by_example(
-              outputs[-1], targets[:bucket[1]], weights[:bucket[1]],
-              softmax_loss_function=softmax_loss_function))
-        else:
-          losses.append(seq2seqFile.sequence_loss(
-              outputs[-1], targets[:bucket[1]], weights[:bucket[1]],
-              softmax_loss_function=softmax_loss_function))
+          print("oops took this out. Bring back.")
+          sys.exit()
+        losses.append(seq2seqFile.sequence_loss(
+            outputs[-1], targets[:bucket[1]], weights[:bucket[1]],
+            softmax_loss_function=softmax_loss_function))
 
   return outputs, losses
 
