@@ -174,7 +174,7 @@ def train():
         previous_losses.append(loss)
         # Save checkpoint and zero timer and loss.
         checkpoint_path = os.path.join(config.working_directory, "seq2seq.ckpt")
-        model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+        model.saver.save(sess, checkpoint_path, global_step=model.global_step, max_to_keep=None) # save all checkpoints.
         step_time, loss = 0.0, 0.0
         # Run evals on development set and print their perplexity.
         for bucket_id in xrange(len(config._buckets)):
