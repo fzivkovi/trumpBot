@@ -92,12 +92,22 @@ def spacy_tokenizer(paragraph):
         words.extend(sentence)
         intermediate_words.append(sentence)
 
-    # Make sure that none are larger than our largest bucket.
-    while len(words) >= config.max_sentence_word_count:
-        del intermediate_words[-1]
-        words = [w for s in intermediate_words for w in s]
-
     return words
+
+    # Broken!!.
+    # wordsBefore = words
+
+    # # Make sure that none are larger than our largest bucket.
+    # while len(words) >= config.max_sentence_word_count:
+    #     del intermediate_words[-1]
+    #     words = [w for s in intermediate_words for w in s]
+
+    # wordsAfer = words
+    # if wordsBefore != wordsAfer:
+    #   print("WordsBefore: ", wordsBefore)
+    #   print("wordsAfer: ", wordsAfer)
+
+    # return words
 
 
 def create_vocabulary(vocabulary_path, data_path, normalize_digits=True):

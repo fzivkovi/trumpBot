@@ -33,6 +33,7 @@ import seq2seq_model
 import config
 
 
+
 def read_data():
   """Read data from source and target files and put into buckets.
     Could definitely have been done neater but oh well. MVP.
@@ -45,6 +46,12 @@ def read_data():
   dev_source_path = config.id_file_dev_enc
   dev_target_path = config.id_file_dev_dec
 
+
+  def trim(myList):
+    if len(myList) > config.max_sentence_word_count-1:
+      myList = myList[:config.max_sentence_word_count-1]
+    return myList
+
   data_set = [[] for _ in config._buckets]
   with tf.gfile.GFile(source_path, mode="r") as source_file:
     with tf.gfile.GFile(target_path, mode="r") as target_file:
@@ -55,9 +62,12 @@ def read_data():
         if counter % 100000 == 0:
           print("  reading data line %d" % counter)
           sys.stdout.flush()
-        source_ids = [int(x) for x in source.split()]
-        target_ids = [int(x) for x in target.split()]
-        target_ids.append(data_utils.EOS_ID)
+        source_ids = trim([int(x) for x in source.split()])
+        target_ids = trim([int(x) for x in target.split()])
+        target_ids.append(d_utils.EOS_ID)
+        if len(source_ids) == 0 or len(target_ids) == 1:
+          source, target = source_file.readline(), target_file.readline()
+          continue
         for bucket_id, (source_size, target_size) in enumerate(config._buckets):
           if len(source_ids) < source_size and len(target_ids) < target_size:
             if movie_source_path and movie_target_path and config.reduced_weight:
@@ -76,9 +86,12 @@ def read_data():
           if counter % 100000 == 0:
             print("  reading data line %d" % counter)
             sys.stdout.flush()
-          source_ids = [int(x) for x in source.split()]
-          target_ids = [int(x) for x in target.split()]
-          target_ids.append(data_utils.EOS_ID)
+          source_ids = trim([int(x) for x in source.split()])
+          target_ids = trim([int(x) for x in target.split()])
+          target_ids.append(d_utils.EOS_ID)
+          if len(source_ids) == 0 or len(target_ids) == 1:
+            source, target = source_file.readline(), target_file.readline()
+            continue
           for bucket_id, (source_size, target_size) in enumerate(config._buckets):
             if len(source_ids) < source_size and len(target_ids) < target_size:
               data_set[bucket_id].append([source_ids, target_ids, config.reduced_weight])
@@ -96,9 +109,12 @@ def read_data():
         if counter % 100000 == 0:
           print("  reading data line %d" % counter)
           sys.stdout.flush()
-        source_ids = [int(x) for x in source.split()]
-        target_ids = [int(x) for x in target.split()]
-        target_ids.append(data_utils.EOS_ID)
+        source_ids = trim([int(x) for x in source.split()])
+        target_ids = trim([int(x) for x in target.split()])
+        target_ids.append(d_utils.EOS_ID)
+        if len(source_ids) == 0 or len(target_ids) == 1:
+          source, target = source_file.readline(), target_file.readline()
+          continue
         for bucket_id, (source_size, target_size) in enumerate(config._buckets):
           if len(source_ids) < source_size and len(target_ids) < target_size:
             if movie_source_path and movie_target_path and config.reduced_weight:
@@ -300,17 +316,6 @@ def self_test():
       model.step(sess, encoder_inputs, decoder_inputs, target_weights,
                  bucket_id, False, None) # Need to fix "None" in this case.
 
-
-def init_session(sess):
-
-    # Create model and load parameters.
-    model = create_model(sess, True)
-    model.batch_size = 1  # We decode one sentence at a time.
-
-    # Load vocabularies.
-    enc_vocab, rev_dec_vocab = data_utils.initialize_vocabulary(config.vocabPath)
-
-    return sess, model, enc_vocab, rev_dec_vocab
 
 def decode_line(sess, model, enc_vocab, rev_dec_vocab, sentence):
     # Get token-ids for the input sentence.
