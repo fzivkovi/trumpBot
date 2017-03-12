@@ -302,18 +302,17 @@ def local_seq2seq(encoder_inputs, decoder_inputs,
                                     flat_sequence=state_list)
     return outputs_and_state[:outputs_len], state
 
+def get_vocab_length(filename):
+  # Best proxy for vocabulary length is the length of the vocab file
+  with open(filename) as f:
+    for i, l in enumerate(f):
+      pass
+  return i + 1
+
 class Seq2SeqModel(object):
   def __init__(self, use_lstm=False, forward_only=False):
-    # Just read the lengths of the vocab files, easiest way to determine.
-    def file_len(fname):
-      with open(fname) as f:
-          for i, l in enumerate(f):
-              pass
-      return i + 1
-
     size = config.layer_size
-
-    self.vocab_size = file_len(config.vocabPath)
+    self.vocab_size = get_vocab_length(config.vocabPath)
     self.buckets = config._buckets
     self.batch_size = config.batch_size
     self.learning_rate = tf.Variable(float(config.learning_rate), trainable=False)
