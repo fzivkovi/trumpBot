@@ -64,7 +64,7 @@ def read_data():
           sys.stdout.flush()
         source_ids = trim([int(x) for x in source.split()])
         target_ids = trim([int(x) for x in target.split()])
-        target_ids.append(d_utils.EOS_ID)
+        target_ids.append(data_utils.EOS_ID)
         if len(source_ids) == 0 or len(target_ids) == 1:
           source, target = source_file.readline(), target_file.readline()
           continue
@@ -88,7 +88,7 @@ def read_data():
             sys.stdout.flush()
           source_ids = trim([int(x) for x in source.split()])
           target_ids = trim([int(x) for x in target.split()])
-          target_ids.append(d_utils.EOS_ID)
+          target_ids.append(data_utils.EOS_ID)
           if len(source_ids) == 0 or len(target_ids) == 1:
             source, target = source_file.readline(), target_file.readline()
             continue
@@ -111,7 +111,7 @@ def read_data():
           sys.stdout.flush()
         source_ids = trim([int(x) for x in source.split()])
         target_ids = trim([int(x) for x in target.split()])
-        target_ids.append(d_utils.EOS_ID)
+        target_ids.append(data_utils.EOS_ID)
         if len(source_ids) == 0 or len(target_ids) == 1:
           source, target = source_file.readline(), target_file.readline()
           continue
