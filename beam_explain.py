@@ -119,3 +119,19 @@ beam_path holds a list of which parent an output came from.  Assuming k = 3,
     # (1) Path: [4, 0, 1], prob = log(1 / 2) + log(1.2 / 5.3) + log(1)
     # (2) Path: [4, 3, 4], prob = log(1 / 2) + log(1.1 / 5.3) + log(1)
     # (3) Path: [2, 0, 1], prob = log(1 / 3) + log(1) + log(1.1 / 5.1)
+
+
+inside create_model
+  A) creation of function
+        loading glove embedding matrix
+        complete loading glove embedding matrix
+
+      inside local_decoder
+        loading glove embedding matrix
+        complete loading glove embedding matrix
+  B) creation of function
+        loading glove embedding matrix
+        complete loading glove embedding matrix
+      inside local_decoder
+        loading glove embedding matrix
+        complete loading glove embedding matrix

@@ -115,7 +115,6 @@ def trim(myList):
   return myList
 
 def create_vocabulary(vocabulary_path, data_path, normalize_digits=True):
-    
   tokenizer = spacy_tokenizer
   vocab_list = None
   if not gfile.Exists(vocabulary_path):
@@ -168,6 +167,13 @@ def initialize_vocabulary(vocabulary_path):
   else:
     raise ValueError("Vocabulary file %s not found.", vocabulary_path)
 
+
+def get_vocab_length(filename):
+  # Best proxy for vocabulary length is the length of the vocab file
+  with open(filename) as f:
+    for i, l in enumerate(f):
+      pass
+  return i + 1
 
 def sentence_to_token_ids(sentence, vocabulary, tokenizer=None, normalize_digits=True):
 

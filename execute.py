@@ -109,8 +109,8 @@ def bucket_stats(merged_train_set):
                          for i in xrange(num_buckets)]
   return bucket_scales
 
-def create_model(session, forward_only):
-  model = seq2seq_model.Seq2SeqModel(forward_only=forward_only)
+def create_model(session, test_mode):
+  model = seq2seq_model.Seq2SeqModel(test_mode)
   # sys.exit()
 
   ckpt = tf.train.get_checkpoint_state(config.working_directory)
@@ -126,7 +126,7 @@ def create_model(session, forward_only):
 
 def train():
   with tf.Session(config=config_tf) as sess:
-    model = create_model(sess, False)
+    model = create_model(sess, test_mode=False)
     print("Creating RNN with %d units." % (config.layer_size))
 
     if config.useTensorBoard:
@@ -192,7 +192,7 @@ def train():
 
 def test():
   with tf.Session() as sess:
-    model = create_model(sess, True)
+    model = create_model(sess, test_mode=True)
     model.batch_size = 1  # We decode one sentence at a time.
 
     vocab_word_to_id, vocab_list = data_utils.initialize_vocabulary(config.vocabPath)
@@ -211,8 +211,8 @@ def test():
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
           {bucket_id: [(token_ids, [])]}, bucket_id)
       # Get output logits for the sentence.
-      attention_where, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                       target_weights, bucket_id, True, None)
+      attention_where, _, output_logits = model.step(sess, encoder_inputs,
+          decoder_inputs, target_weights, bucket_id, True, None)
 
 
       print(np.shape(output_logits))         # This is a greedy decoder - outputs are just argmaxes of output_logits.

@@ -13,14 +13,14 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import init_ops
 
-def load_embedding():
+def load_vocab():
   print('loading glove embedding matrix')
   gloveNpz = np.load(config.glove_word_embeddings_path + '.npz','rb')
   embedding_matrix = tf.constant(gloveNpz['glove'], tf.float32)
   print('complete loading glove embedding matrix')
   return embedding_matrix
 
-class LocalEmbeddingWrapper(tf.nn.rnn_cell.RNNCell):
+class EmbeddingWrapper(tf.nn.rnn_cell.RNNCell):
   """Operator adding input embedding to the given cell.
 
   Note: in many cases it may be more efficient to not use this wrapper,
@@ -49,7 +49,7 @@ class LocalEmbeddingWrapper(tf.nn.rnn_cell.RNNCell):
     self._embedding_classes = embedding_classes
     self._embedding_size = config.glove_dim
     self._initializer = initializer
-    self.embedding_matrix = load_embedding()
+    self.embedding_matrix = load_vocab()
 
   @property
   def state_size(self):
