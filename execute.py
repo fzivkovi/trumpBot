@@ -111,6 +111,7 @@ def bucket_stats(merged_train_set):
 
 def create_model(session, forward_only):
   model = seq2seq_model.Seq2SeqModel(forward_only=forward_only)
+  # sys.exit()
 
   ckpt = tf.train.get_checkpoint_state(config.working_directory)
   if ckpt and ckpt.model_checkpoint_path:

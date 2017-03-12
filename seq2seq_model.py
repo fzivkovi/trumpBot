@@ -11,8 +11,9 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import sys
 import os
 
-from tensorflow.models.rnn.translate import data_utils
+import data_utils
 import config
+from localWrapper import LocalEmbeddingWrapper, load_embedding
 
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
@@ -24,7 +25,6 @@ from tensorflow.python.ops import rnn
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import variable_scope
 from tensorflow.python.util import nest
-from localWrapper import LocalEmbeddingWrapper, load_embedding
 
 linear = rnn_cell._linear  # pylint: disable=protected-access
 
@@ -43,8 +43,7 @@ def local_extract_argmax_and_embed(embedding, output_projection=None,
       prev = nn_ops.xw_plus_b(
           prev, output_projection[0], output_projection[1])
     prev_symbol = math_ops.argmax(prev, 1)
-    # Note that gradients will not propagate through the second parameter of
-    # embedding_lookup.
+  # Note that gradients will not propagate through the second parameter of embedding_lookup.
     emb_prev = embedding_ops.embedding_lookup(embedding, prev_symbol)
     if not update_embedding:
       emb_prev = array_ops.stop_gradient(emb_prev)
@@ -165,14 +164,11 @@ def local_attention_decoder(decoder_inputs, initial_state, attention_states,
       if input_size.value is None:
         raise ValueError("Could not infer input size from input: %s" % inp.name)
       x = linear([inp] + attns, input_size, True)
-      # Run the RNN.
+      # Run the RNN then the attention mechanism.
       cell_output, state = cell(x, state)
-      # Run the attention mechanism.
       if i == 0 and initial_state_attention:
         with variable_scope.variable_scope(variable_scope.get_variable_scope(), reuse=True):
           attns = attention(state)
-
-
       else:
         attns = attention(state)
 
@@ -184,9 +180,8 @@ def local_attention_decoder(decoder_inputs, initial_state, attention_states,
 
   return outputs, state
 
-def local_decoder(decoder_inputs, initial_state,
-        attention_states, cell, num_symbols, embedding_size,
-        num_heads=1, output_size=None, output_projection=None,
+def local_decoder(decoder_inputs, initial_state, attention_states, cell,
+        num_symbols, num_heads=1, output_size=None, output_projection=None,
         feed_previous=False, update_embedding_for_previous=True,
         dtype=None, scope=None, initial_state_attention=False):
   """ FEED_PREVIOUS = True means INFERENCE mode where we make predictions
@@ -206,6 +201,7 @@ def local_decoder(decoder_inputs, initial_state,
   if output_projection is not None:
     proj_biases = ops.convert_to_tensor(output_projection[1], dtype=dtype)
     proj_biases.get_shape().assert_is_compatible_with([num_symbols])
+  print("inside local_seq2seq then to local_decoder")
 
   with variable_scope.variable_scope(
       scope or "embedding_attention_decoder", dtype=dtype) as scope:
@@ -229,8 +225,8 @@ def local_decoder(decoder_inputs, initial_state,
         loop_function=loop_function,
         initial_state_attention=initial_state_attention)
 
-def local_seq2seq(encoder_inputs, decoder_inputs,
-      cell, num_encoder_symbols, num_decoder_symbols, embedding_size,
+def local_seq2seq(encoder_inputs, decoder_inputs, cell,
+      num_encoder_symbols, num_decoder_symbols,
       num_heads=1, output_projection=None, feed_previous=False,
       dtype=None, scope=None, initial_state_attention=False):
   with variable_scope.variable_scope(
@@ -238,8 +234,7 @@ def local_seq2seq(encoder_inputs, decoder_inputs,
     dtype = scope.dtype
     # Encoder.
     encoder_cell = LocalEmbeddingWrapper(
-        cell, embedding_classes=num_encoder_symbols,
-        embedding_size=embedding_size)
+        cell, embedding_classes=num_encoder_symbols)
 
     encoder_outputs, encoder_state = rnn.rnn(
         encoder_cell, encoder_inputs, dtype=dtype)
@@ -257,6 +252,7 @@ def local_seq2seq(encoder_inputs, decoder_inputs,
     #   output_size = num_decoder_symbols
 
     # If feed_previous is a boolean, return this.
+
     if isinstance(feed_previous, bool):
       return local_decoder(
           decoder_inputs,
@@ -264,7 +260,6 @@ def local_seq2seq(encoder_inputs, decoder_inputs,
           attention_states,
           cell,
           num_decoder_symbols,
-          embedding_size,
           num_heads=num_heads,
           output_size=output_size,
           output_projection=output_projection,
@@ -320,6 +315,7 @@ def local_model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
 
 class Seq2SeqModel(object):
   def __init__(self, use_lstm=False, forward_only=False):
+    print("inside init of model")
     size = config.layer_size
     self.vocab_size = get_vocab_length(config.vocabPath)
     self.buckets = config._buckets
@@ -349,21 +345,18 @@ class Seq2SeqModel(object):
       softmax_loss_function = sampled_loss
 
     # Create the internal multi-layer cell for our RNN.
-    single_cell = tf.nn.rnn_cell.GRUCell(size)
-    # if use_lstm:
-    #   single_cell = tf.nn.rnn_cell.BasicLSTMCell(size)
-    single_cell = tf.nn.rnn_cell.DropoutWrapper(single_cell, input_keep_prob=config.dropout_keep)
-    cell = single_cell
+    cell = tf.nn.rnn_cell.GRUCell(size)
+    cell = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=config.dropout_keep)
     if config.num_layers > 1:
-      cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * config.num_layers)
+      cell = tf.nn.rnn_cell.MultiRNNCell([cell] * config.num_layers)
 
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
+      print("creation of seq2seq_f")
       return local_seq2seq(
           encoder_inputs, decoder_inputs, cell,
           num_encoder_symbols=self.vocab_size,
           num_decoder_symbols=self.vocab_size,
-          embedding_size=config.glove_dim,
           output_projection=output_projection,
           feed_previous=do_decode)
 
@@ -430,13 +423,6 @@ class Seq2SeqModel(object):
         self.gradient_norms.append(norm)
         self.updates.append(opt.apply_gradients(
             zip(clipped_gradients, params), global_step=self.global_step))
-
-        # print('gradients: ', gradients)
-        # print("modelWithBucketsOutputs_%s" % buck, self.outputs[buck])
-        # print("modelWithBucketsLosses_%s" % buck, self.losses[buck])
-        # print('gradient_norm_%s' % buck, norm)
-        # print('clipped_gradients_%s' % buck, clipped_gradients)
-        # sys.exit()
 
         if config.useTensorBoard:
           pass

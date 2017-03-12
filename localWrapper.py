@@ -29,7 +29,7 @@ class LocalEmbeddingWrapper(tf.nn.rnn_cell.RNNCell):
   feed into your RNN.
   """
 
-  def __init__(self, cell, embedding_classes, embedding_size, initializer=None):
+  def __init__(self, cell, embedding_classes, initializer=None):
     """Create a cell with an added input embedding.
 
     Args:
@@ -45,12 +45,9 @@ class LocalEmbeddingWrapper(tf.nn.rnn_cell.RNNCell):
     """
     if not isinstance(cell, tf.nn.rnn_cell.RNNCell):
       raise TypeError("The parameter cell is not RNNCell.")
-    if embedding_classes <= 0 or embedding_size <= 0:
-      raise ValueError("Both embedding_classes and embedding_size must be > 0: "
-                       "%d, %d." % (embedding_classes, embedding_size))
     self._cell = cell
     self._embedding_classes = embedding_classes
-    self._embedding_size = embedding_size
+    self._embedding_size = config.glove_dim
     self._initializer = initializer
     self.embedding_matrix = load_embedding()
 
