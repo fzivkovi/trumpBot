@@ -19,8 +19,8 @@ import config
 def read_train_data():
   source_path = config.id_file_train_enc
   target_path = config.id_file_train_dec
-  data_set = [[] for _ in config._buckets]
 
+  data_set = [[] for _ in config._buckets]
   with tf.gfile.GFile(source_path, mode="r") as source_file:
     with tf.gfile.GFile(target_path, mode="r") as target_file:
       source, target = source_file.readline(), target_file.readline()
@@ -30,9 +30,12 @@ def read_train_data():
         if counter % 100000 == 0:
           print("  reading data line %d" % counter)
           sys.stdout.flush()
-        source_ids = [int(x) for x in source.split()]
-        target_ids = [int(x) for x in target.split()]
+        source_ids = data_utils.trim([int(x) for x in source.split()])
+        target_ids = data_utils.trim([int(x) for x in target.split()])
         target_ids.append(data_utils.EOS_ID)
+        if len(source_ids) == 0 or len(target_ids) == 1:
+          source, target = source_file.readline(), target_file.readline()
+          continue
         for bucket_id, (source_size, target_size) in enumerate(config._buckets):
           if len(source_ids) < source_size and len(target_ids) < target_size:
             if config.useMovieData:
@@ -81,15 +84,15 @@ def read_val_data():
         if counter % 100000 == 0:
           print("  reading data line %d" % counter)
           sys.stdout.flush()
-        source_ids = [int(x) for x in source.split()]
-        target_ids = [int(x) for x in target.split()]
+        source_ids = data_utils.trim([int(x) for x in source.split()])
+        target_ids = data_utils.trim([int(x) for x in target.split()])
         target_ids.append(data_utils.EOS_ID)
+        if len(source_ids) == 0 or len(target_ids) == 1:
+          source, target = source_file.readline(), target_file.readline()
+          continue
         for bucket_id, (source_size, target_size) in enumerate(config._buckets):
           if len(source_ids) < source_size and len(target_ids) < target_size:
-            if config.useMovieData:
-              data_set[bucket_id].append([source_ids, target_ids, 1.0])
-            else:
-              data_set[bucket_id].append([source_ids, target_ids])
+            data_set[bucket_id].append([source_ids, target_ids, config.reduced_weight])
             break
         source, target = source_file.readline(), target_file.readline()
   return data_set  # validation set
@@ -134,7 +137,7 @@ def train():
     merged_train_set = read_train_data()
     validation_set = read_val_data()
     bucket_scales = bucket_stats(merged_train_set)
-    # This is the training loop.
+
     step_time, loss, current_step = 0.0, 0.0, 0
     previous_losses = []
     while True:
@@ -143,9 +146,9 @@ def train():
       random_number_01 = np.random.random_sample()
       bucket_id = min([i for i in xrange(len(bucket_scales))
                        if bucket_scales[i] > random_number_01])
-
       # Get a batch and make a step.
       start_time = time.time()
+
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
           merged_train_set, bucket_id)
       _, step_loss, _, tb_summary = model.step(sess, encoder_inputs, decoder_inputs,
@@ -161,12 +164,12 @@ def train():
 
         # Print statistics for the previous epoch.
         perplexity = math.exp(loss) if loss < 300 else float('inf')
-        print ("global step %d learning rate %.4f step-time %.2f perplexity "
-               "%.2f" % (model.global_step.eval(), model.learning_rate.eval(),
-                         step_time, perplexity))
-        # Decrease learning rate if no improvement was seen over last 3 times.
-        if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
-          sess.run(model.learning_rate_decay_op)
+        print ("global step %d learning rate %.4f step-time %.2f "
+              "train perplexity %.2f" % (model.global_step.eval(),
+              model.learning_rate.eval(), step_time, perplexity))
+        # Annealing learning rate not necessary, using AdamOptimizer.
+        # if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
+        #   sess.run(model.learning_rate_decay_op)
         previous_losses.append(loss)
         # Save checkpoint and zero timer and loss.
         checkpoint_path = os.path.join(config.working_directory, "seq2seq.ckpt")
@@ -183,11 +186,10 @@ def train():
                                        target_weights, bucket_id, True, summary_op)
 
           eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
-          print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
+          print("  Bucket %d: validation perplexity %.2f" % (bucket_id, eval_ppx))
         sys.stdout.flush()
 
 def test():
-
   with tf.Session() as sess:
     model = create_model(sess, True)
     model.batch_size = 1  # We decode one sentence at a time.
@@ -208,28 +210,8 @@ def test():
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
           {bucket_id: [(token_ids, [])]}, bucket_id)
       # Get output logits for the sentence.
-      _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
+      attention_where, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, True, None)
-
-      beam_search = False
-      if beam_search:
-        k = output_logits[0]
-        paths = []
-        for kk in range(beam_size):
-            paths.append([])
-        curr = range(beam_size) = [0,1,2,3,4]
-        num_steps = len(path)
-        # start at (num_steps - 1), go to 0, count backwards
-        for i in range(num_steps-1, -1, -1):
-            for kk in range(beam_size):
-              paths[kk].append(symbol[i][curr[kk]])
-              curr[kk] = path[i][curr[kk]]
-        recos = set()
-        print "Replies --------------------------------------->"
-        for kk in range(beam_size):
-            foutputs = [int(logit)  for logit in paths[kk][::-1]]
-
-
 
 
       print(np.shape(output_logits))         # This is a greedy decoder - outputs are just argmaxes of output_logits.

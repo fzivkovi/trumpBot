@@ -92,13 +92,27 @@ def spacy_tokenizer(paragraph):
         words.extend(sentence)
         intermediate_words.append(sentence)
 
-    # Make sure that none are larger than our largest bucket.
-    while len(words) >= config.max_sentence_word_count:
-        del intermediate_words[-1]
-        words = [w for s in intermediate_words for w in s]
-
     return words
 
+    # Broken!!.
+    # wordsBefore = words
+
+    # # Make sure that none are larger than our largest bucket.
+    # while len(words) >= config.max_sentence_word_count:
+    #     del intermediate_words[-1]
+    #     words = [w for s in intermediate_words for w in s]
+
+    # wordsAfer = words
+    # if wordsBefore != wordsAfer:
+    #   print("WordsBefore: ", wordsBefore)
+    #   print("wordsAfer: ", wordsAfer)
+
+    # return words
+
+def trim(myList):
+  if len(myList) > config.max_sentence_word_count-1:
+    myList = myList[:config.max_sentence_word_count-1]
+  return myList
 
 def create_vocabulary(vocabulary_path, data_path, normalize_digits=True):
     
@@ -211,9 +225,8 @@ def process_glove(vocab_list, gloveSize=4e5):
           vocab_list.append(line)
 
     glove_path = os.path.join(config.glove_dir, "glove.6B.{}d.txt".format(config.glove_dim))
-    # DEREK: These are initialized to zero vectors. 
+    # These are initialized to zero vectors.
     # If not found in glove, they remain zero vectors, and are not overwritten.
-    # TODO: investigate other options. Try training them as well.
     glove = np.zeros((len(vocab_list), config.glove_dim)) ### FIX.
 
     vocabNotFound = []

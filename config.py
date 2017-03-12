@@ -3,9 +3,6 @@ import os
 import argparse
 import sys
 
-#########################################################################################
-# Argument Parser
-#########################################################################################
 def parseArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--attention_type'  , '-a', help="Types of attention. Pick from 'vinyals', 'luong', 'bahdanau'", required=True)
@@ -32,7 +29,7 @@ steps_per_checkpoint = 300
 
 glove_dir = 'data/dwr'
 glove_possible_dimensions = [50,100,200,300]
-learning_rate = 0.5
+learning_rate = 0.001 # adam,   0.5 for sgd
 learning_rate_decay_factor = 0.99
 max_gradient_norm = 5.0
 dropout_keep = 0.7
@@ -50,11 +47,11 @@ if not debug:
     if useMovieData:
         trainMovieQ = 'data/allMovieData.enc'
         trainMovieA = 'data/allMovieData.dec'
-        reduced_movie_weight = 0.2
+        reduced_weight = 0.5
     else:
         trainMovieQ = None
         trainMovieA = None
-        reduced_movie_weight = None
+        reduced_weight = 1.0
     layer_size = 512
     # Samples for sampled softmax.
     num_samples = 256
@@ -73,7 +70,7 @@ else:
     # Samples for sampled softmax.
     num_samples = 64
     batch_size = 32
-    reduced_movie_weight = None
+    reduced_weight = 1.0
     glove_dim = glove_possible_dimensions[0]
     num_layers = 1  # Number of RNN layers.
     # folder where checkpoints, vocabulary, temporary data will be stored
