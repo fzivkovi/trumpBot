@@ -66,7 +66,7 @@ def load_en():
 
 def spacy_tokenizer(paragraph):
     # Uses spacy to parse multi-sentence paragraphs into a list of token words.
-    words = []
+    finalWords = []
     intermediate_words = []
 
     def processWord(word):
@@ -89,10 +89,10 @@ def spacy_tokenizer(paragraph):
         # flatten.
         sentence = [word for words in sentence for word in words]
         sentence = [str(word) for word in sentence if word]
-        words.extend(sentence)
+        finalWords.extend(sentence)
         intermediate_words.append(sentence)
 
-    return words
+    return finalWords
 
     # Broken!!.
     # wordsBefore = words
