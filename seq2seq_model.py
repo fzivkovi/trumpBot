@@ -16,11 +16,12 @@ import config
 from local_wrapper import *
 
 class Seq2SeqModel(object):
-  def __init__(self, test_mode=False):
+  def __init__(self):
     print("inside init of model")
     size = config.layer_size
     self.vocab_size = data_utils.get_vocab_length(config.vocabPath)
     self.buckets = config._buckets
+    self.mode = config.mode
     self.batch_size = config.batch_size
     self.learning_rate = tf.Variable(float(config.learning_rate), trainable=False)
     self.learning_rate_decay_op = self.learning_rate.assign(
@@ -53,15 +54,15 @@ class Seq2SeqModel(object):
       cell = tf.nn.rnn_cell.MultiRNNCell([cell] * config.num_layers)
 
     # The seq2seq function: we use embedding for the input and attention.
-    def seq2seq_f(encoder_inputs, decoder_inputs, test_mode):
+    def seq2seq_f(encoder_inputs, decoder_inputs, mode):
       print("creation of seq2seq_f")
-
+      make_predictions = True if mode == "test" else False
       return local_seq2seq(
           encoder_inputs, decoder_inputs, cell,
           num_encoder_symbols=self.vocab_size,
           num_decoder_symbols=self.vocab_size,
           output_projection=output_projection,
-          test_mode=test_mode)
+          test_mode=make_predictions)
 
     # Feeds for inputs.
     self.encoder_inputs = []
@@ -80,37 +81,30 @@ class Seq2SeqModel(object):
     targets = [self.decoder_inputs[i + 1]
                for i in xrange(len(self.decoder_inputs) - 1)]
 
-    # Training outputs and losses.
-    if test_mode:
-      self.outputs, self.losses = local_model_with_buckets(
-          self.encoder_inputs, self.decoder_inputs, targets,
-          self.target_weights, self.buckets, lambda x, y: seq2seq_f(x, y, True),
-          softmax_loss_function=softmax_loss_function)
-      # If we use output projection, we need to project outputs for decoding.
-      if output_projection is not None:
-        for buck in xrange(len(self.buckets)):
-          self.outputs[buck] = [
-              tf.matmul(output, output_projection[0]) + output_projection[1]
-              for output in self.outputs[buck]
-          ]
-    else:
-      # Outputs is a list of tensors, where the tensors have one for each output word
-      self.outputs, self.losses = local_model_with_buckets(
-          self.encoder_inputs, self.decoder_inputs, targets,
-          self.target_weights, self.buckets, lambda x, y: seq2seq_f(x, y, False),
-          softmax_loss_function=softmax_loss_function)
-      ######
-      # POINTER SENTINEL MIXTURE MODEL.
-      # print(self.outputs[0]) ---> shape [batchSize x hiddenStateSize]. Will need these h's. These are the decoder h's.
-      # self.encoder_inputs, self.decoder_inputs --> necessary for constructing cost function.
-      # model_with_buckets --> ALSO neeed to return encoder_inputs (and if we wish, 'a' for visualization.)
+    self.outputs, self.losses = local_model_with_buckets(
+        self.encoder_inputs, self.decoder_inputs, targets,
+        self.target_weights, self.buckets, lambda x, y: seq2seq_f(x, y, self.mode),
+        softmax_loss_function=softmax_loss_function)
+    # If we use output projection, we need to project outputs for decoding.
+    if self.mode == "test" and output_projection is not None:
+      for buck in xrange(len(self.buckets)):
+        self.outputs[buck] = [
+            tf.matmul(output, output_projection[0]) + output_projection[1]
+            for output in self.outputs[buck]
+        ]
+    # Outputs is a list of tensors, where the tensors have one for each output word
+    ######
+    # POINTER SENTINEL MIXTURE MODEL.
+    # print(self.outputs[0]) ---> shape [batchSize x hiddenStateSize]. Will need these h's. These are the decoder h's.
+    # self.encoder_inputs, self.decoder_inputs --> necessary for constructing cost function.
+    # model_with_buckets --> ALSO neeed to return encoder_inputs (and if we wish, 'a' for visualization.)
 
     #self.losses = tf.Print(self.losses, [self.losses], message="lossesForBuckets: ", first_n=50, summarize=100)
     # tf.summary.histogram('lossesForBuckets', self.losses)
 
     # Gradients and SGD update operation for training the model.
     params = tf.trainable_variables()
-    if not test_mode:    # in other words, if in training mode
+    if self.mode == "train":
       self.gradient_norms = []
       self.updates = []
       # opt = tf.train.GradientDescentOptimizer(self.learning_rate)
@@ -134,7 +128,7 @@ class Seq2SeqModel(object):
           # tf.summary.histogram('gradient_norm_%s' % buck, norm)
           # tf.summary.histogram('clipped_gradients_%s' % buck, clipped_gradients)
 
-    self.saver = tf.train.Saver(tf.global_variables())
+    self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=None)
 
   def step(self, session, encoder_inputs, decoder_inputs, target_weights,
            bucket_id, test_mode, summary_op):

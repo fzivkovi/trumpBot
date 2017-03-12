@@ -109,24 +109,26 @@ def bucket_stats(merged_train_set):
                          for i in xrange(num_buckets)]
   return bucket_scales
 
-def create_model(session, test_mode):
-  model = seq2seq_model.Seq2SeqModel(test_mode)
-  # sys.exit()
+def create_model(session):
+  print("Building model...")
+  start = time.time()
+  model = seq2seq_model.Seq2SeqModel()
+  print("Model built! Took {:.2f} seconds.".format(time.time() - start))
 
   ckpt = tf.train.get_checkpoint_state(config.working_directory)
   if ckpt and ckpt.model_checkpoint_path:
     cp = ckpt.model_checkpoint_path
-    print("Restored model using checkpoint parameters from %s" % cp)
+    print("Restoring model using checkpoint parameters from %s" % cp)
     model.saver.restore(session, ckpt.model_checkpoint_path)
   else:
-    print("Created model with fresh parameters.")
+    print("Creating model with fresh parameters.")
     session.run(tf.global_variables_initializer())
 
   return model
 
 def train():
   with tf.Session(config=config_tf) as sess:
-    model = create_model(sess, test_mode=False)
+    model = create_model(sess)
     print("Creating RNN with %d units." % (config.layer_size))
 
     if config.useTensorBoard:
@@ -174,7 +176,7 @@ def train():
         previous_losses.append(loss)
         # Save checkpoint and zero timer and loss.
         checkpoint_path = os.path.join(config.working_directory, "seq2seq.ckpt")
-        model.saver.save(sess, checkpoint_path, global_step=model.global_step, max_to_keep=None) # save all checkpoints.
+        model.saver.save(sess, checkpoint_path, global_step=model.global_step)
         step_time, loss = 0.0, 0.0
         # Run evals on development set and print their perplexity.
         for bucket_id in xrange(len(config._buckets)):
@@ -192,7 +194,7 @@ def train():
 
 def test():
   with tf.Session() as sess:
-    model = create_model(sess, test_mode=True)
+    model = create_model(sess)
     model.batch_size = 1  # We decode one sentence at a time.
 
     vocab_word_to_id, vocab_list = data_utils.initialize_vocabulary(config.vocabPath)
@@ -222,14 +224,15 @@ def test():
       # If there is an EOS symbol in outputs, cut them at that point.
       if data_utils.EOS_ID in outputs:
         outputs = outputs[:outputs.index(data_utils.EOS_ID)]
-      sentence = prompt_user("next", outputs)
+      response = " ".join([tf.compat.as_str(vocab_list[output]) for output in outputs])
+      sentence = prompt_user("next", response)
 
-def prompt_user(phase, outputs=None):
+def prompt_user(phase, response=None):
   if phase == "start":
     print("Your query: ")
   elif phase == "next":
     print("Trumps response: ")
-    print(" ".join([tf.compat.as_str(vocab_list[output]) for output in outputs]))
+    print(response)
   elif phase == "long":
     print("Your input was too long.  Please try a shorter sentence.")
 
