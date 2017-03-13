@@ -41,7 +41,7 @@ if not debug:
         longer than O will be pushed to the next bucket and padded accordingly.
         We assume that the list is sorted, e.g., [(2, 4), (8, 16)].
     """
-    _buckets = [(8, 9), (15, 16), (28, 29), (45, 46), (59,61)]
+    _buckets = [(8, 9), (15, 16), (28, 29), (45, 46), (59,61),(100,100)]
     # These are maximums
     max_vocabulary_size = 20000
     if useMovieData:
