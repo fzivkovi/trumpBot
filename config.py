@@ -52,12 +52,12 @@ if not debug:
         trainMovieQ = None
         trainMovieA = None
         reduced_weight = 1.0
-    layer_size = 512
+    layer_size = 1024
     # Samples for sampled softmax.
-    num_samples = 256
+    num_samples = 512
     batch_size = 64
-    glove_dim = glove_possible_dimensions[1]
-    num_layers = 2          # Number of RNN layers.
+    glove_dim = glove_possible_dimensions[3]
+    num_layers = 3          # Number of RNN layers.
     # folder where checkpoints, vocabulary, temporary data will be stored
     working_directory = 'working_dir_%s_%s' % (glove_dim, attention_type)
 else:
