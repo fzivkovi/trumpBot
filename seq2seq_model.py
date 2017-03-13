@@ -17,7 +17,6 @@ from local_wrapper import *
 
 class Seq2SeqModel(object):
   def __init__(self):
-    print("inside init of model")
     size = config.layer_size
     self.vocab_size = data_utils.get_vocab_length(config.vocabPath)
     self.buckets = config._buckets
@@ -54,15 +53,14 @@ class Seq2SeqModel(object):
       cell = tf.nn.rnn_cell.MultiRNNCell([cell] * config.num_layers)
 
     # The seq2seq function: we use embedding for the input and attention.
-    def seq2seq_f(encoder_inputs, decoder_inputs, mode):
-      print("creation of seq2seq_f")
+    def seq2seq_f(encoder_inputs, decoder_inputs, embeddings, mode):
       make_predictions = True if mode == "test" else False
       return local_seq2seq(
-          encoder_inputs, decoder_inputs, cell,
+          encoder_inputs, decoder_inputs, cell, embeddings,
           num_encoder_symbols=self.vocab_size,
           num_decoder_symbols=self.vocab_size,
           output_projection=output_projection,
-          test_mode=make_predictions)
+          test_mode=make_predictions, )
 
     # Feeds for inputs.
     self.encoder_inputs = []
@@ -83,7 +81,8 @@ class Seq2SeqModel(object):
 
     self.outputs, self.losses = local_model_with_buckets(
         self.encoder_inputs, self.decoder_inputs, targets,
-        self.target_weights, self.buckets, lambda x, y: seq2seq_f(x, y, self.mode),
+        self.target_weights, self.buckets,
+        lambda x, y, embeds: seq2seq_f(x, y, embeds, self.mode),
         softmax_loss_function=softmax_loss_function)
     # If we use output projection, we need to project outputs for decoding.
     if self.mode == "test" and output_projection is not None:

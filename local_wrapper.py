@@ -181,7 +181,7 @@ def local_attention_decoder(decoder_inputs, initial_state, attention_states,
 
   return outputs, state
 
-def local_decoder(decoder_inputs, initial_state, attention_states, cell,
+def local_decoder(decoder_inputs, initial_state, attention_states, cell, embeds,
         num_symbols, num_heads=1, output_size=None, output_projection=None,
         test_mode=False, update_embedding_for_previous=True,
         dtype=None, scope=None, initial_state_attention=False):
@@ -202,20 +202,19 @@ def local_decoder(decoder_inputs, initial_state, attention_states, cell,
   if output_projection is not None:
     proj_biases = ops.convert_to_tensor(output_projection[1], dtype=dtype)
     proj_biases.get_shape().assert_is_compatible_with([num_symbols])
-  print("inside local_seq2seq then to local_decoder")
 
   with variable_scope.variable_scope(
       scope or "embedding_attention_decoder", dtype=dtype) as scope:
-    embedding = embedding_utils.load_vocab()
-
     if test_mode:  # Inference mode.
       loop_function = local_extract_argmax_and_embed(
-          embedding, output_projection,
+          embeds, output_projection,
           update_embedding_for_previous)
     else:               # Training mode.
       loop_function = None
+
     emb_inp = [
-        embedding_ops.embedding_lookup(embedding, i) for i in decoder_inputs]
+        embedding_ops.embedding_lookup(embeds, i) for i in decoder_inputs]
+
     return local_attention_decoder(
         emb_inp,
         initial_state,
@@ -226,7 +225,7 @@ def local_decoder(decoder_inputs, initial_state, attention_states, cell,
         loop_function=loop_function,
         initial_state_attention=initial_state_attention)
 
-def local_seq2seq(encoder_inputs, decoder_inputs, cell,
+def local_seq2seq(encoder_inputs, decoder_inputs, cell, embeddings,
       num_encoder_symbols, num_decoder_symbols,
       num_heads=1, output_projection=None, test_mode=False,
       dtype=None, scope=None, initial_state_attention=False):
@@ -235,7 +234,7 @@ def local_seq2seq(encoder_inputs, decoder_inputs, cell,
     dtype = scope.dtype
     # Encoder.
     encoder_cell = embedding_utils.EmbeddingWrapper(
-        cell, embedding_classes=num_encoder_symbols)
+        cell, embeddings, classes=num_encoder_symbols)
 
     encoder_outputs, encoder_state = rnn.rnn(
         encoder_cell, encoder_inputs, dtype=dtype)
@@ -251,13 +250,12 @@ def local_seq2seq(encoder_inputs, decoder_inputs, cell,
     # if output_projection is None:
     #   cell = rnn_cell.OutputProjectionWrapper(cell, num_decoder_symbols)
     #   output_size = num_decoder_symbols
-
     if isinstance(test_mode, bool):
       return local_decoder(
           decoder_inputs,
           encoder_state,
           attention_states,
-          cell,
+          cell, embeddings,
           num_decoder_symbols,
           num_heads=num_heads,
           output_size=output_size,
@@ -281,11 +279,13 @@ def local_model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
   losses = []
   outputs = []
   with ops.name_scope(name, "model_with_buckets", all_inputs):
+    embeddings = embedding_utils.load_vocab()
     for j, bucket in enumerate(buckets):
+      print("Preparing bucket", str(j), "...")
       with variable_scope.variable_scope(variable_scope.get_variable_scope(),
                                          reuse=True if j > 0 else None):
         bucket_outputs, _ = seq2seq_f(encoder_inputs[:bucket[0]],
-                                    decoder_inputs[:bucket[1]])
+                          decoder_inputs[:bucket[1]], embeddings)
         outputs.append(bucket_outputs)
         losses.append(seq2seq.sequence_loss(
             outputs[-1], targets[:bucket[1]], weights[:bucket[1]],

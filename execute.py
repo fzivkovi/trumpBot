@@ -129,7 +129,7 @@ def create_model(session):
 def train():
   with tf.Session(config=config_tf) as sess:
     model = create_model(sess)
-    print("Creating RNN with %d units." % (config.layer_size))
+    print("Creating RNN with %d units.\n" % (config.layer_size))
 
     if config.useTensorBoard:
       summary_op = tf.summary.merge_all()
@@ -140,6 +140,9 @@ def train():
     merged_train_set = read_train_data()
     validation_set = read_val_data()
     bucket_scales = bucket_stats(merged_train_set)
+    print("="*70)
+    print("TRAINING")
+    print("="*70)
 
     step_time, loss, current_step = 0.0, 0.0, 0
     previous_losses = []
@@ -202,7 +205,7 @@ def test():
     while sentence:   # What are token ids?
       token_ids = data_utils.sentence_to_token_ids(tf.compat.as_bytes(sentence), vocab_word_to_id)
       # Which bucket does it belong to?    print 'Length token ids:', len(token_ids)
-      print(' '.join([vocab_list[token_id] for token_id in token_ids]))
+      # print(' '.join([vocab_list[token_id] for token_id in token_ids]))
       potentialBuckets = [b for b in xrange(len(config._buckets))
                        if config._buckets[b][0] > len(token_ids)]
       if not potentialBuckets:
@@ -217,9 +220,9 @@ def test():
           decoder_inputs, target_weights, bucket_id, True, None)
 
 
-      print(np.shape(output_logits))         # This is a greedy decoder - outputs are just argmaxes of output_logits.
+      # print(np.shape(output_logits))         # This is a greedy decoder - outputs are just argmaxes of output_logits.
       outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
-      print('Untrimmed greedy outputs: %s' % ([tf.compat.as_str(vocab_list[output]) for output in outputs]))
+      # print('Untrimmed greedy outputs: %s' % ([tf.compat.as_str(vocab_list[output]) for output in outputs]))
 
       # If there is an EOS symbol in outputs, cut them at that point.
       if data_utils.EOS_ID in outputs:

@@ -14,10 +14,9 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import init_ops
 
 def load_vocab():
-  print('loading glove embedding matrix')
+  print('Loading glove embedding matrix ... ')
   gloveNpz = np.load(config.glove_word_embeddings_path + '.npz','rb')
   embedding_matrix = tf.constant(gloveNpz['glove'], tf.float32)
-  print('complete loading glove embedding matrix')
   return embedding_matrix
 
 class EmbeddingWrapper(tf.nn.rnn_cell.RNNCell):
@@ -29,12 +28,14 @@ class EmbeddingWrapper(tf.nn.rnn_cell.RNNCell):
   feed into your RNN.
   """
 
-  def __init__(self, cell, embedding_classes, initializer=None):
+  def __init__(self, cell, embeddings, classes, initializer=None):
     """Create a cell with an added input embedding.
 
     Args:
       cell: an RNNCell, an embedding will be put before its inputs.
-      embedding_classes: integer, how many symbols will be embedded.
+      embeddings: glove embedding matrix
+      classes: integer, how many symbols will be embedded, length of
+        encoder sequence
       embedding_size: integer, the size of the vectors we embed into.
       initializer: an initializer to use when creating the embedding;
         if None, the initializer from variable scope or a default one is used.
@@ -46,10 +47,10 @@ class EmbeddingWrapper(tf.nn.rnn_cell.RNNCell):
     if not isinstance(cell, tf.nn.rnn_cell.RNNCell):
       raise TypeError("The parameter cell is not RNNCell.")
     self._cell = cell
-    self._embedding_classes = embedding_classes
+    self.embedding_matrix = embeddings
+    self._embedding_classes = classes
     self._embedding_size = config.glove_dim
     self._initializer = initializer
-    self.embedding_matrix = load_vocab()
 
   @property
   def state_size(self):
