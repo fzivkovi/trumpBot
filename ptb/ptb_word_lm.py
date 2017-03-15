@@ -84,95 +84,6 @@ flags.DEFINE_bool("use_fp16", False,
 FLAGS = flags.FLAGS
 
 
-
-
-from tensorflow.python.framework import ops
-from tensorflow.python.ops import array_ops
-# from tensorflow.python.ops import control_flow_ops
-# from tensorflow.python.ops import embedding_ops
-from tensorflow.python.ops import math_ops
-from tensorflow.python.ops import nn_ops
-
-
-
-
-
-def sequence_loss_by_example(logits,
-                             targets,
-                             weights,
-                             average_across_timesteps=True,
-                             softmax_loss_function=None,
-                             name=None):
-  """Weighted cross-entropy loss for a sequence of logits (per example).
-
-  Args:
-    logits: List of 2D Tensors of shape [batch_size x num_decoder_symbols].
-    targets: List of 1D batch-sized int32 Tensors of the same length as logits.
-    weights: List of 1D batch-sized float-Tensors of the same length as logits.
-    average_across_timesteps: If set, divide the returned cost by the total
-      label weight.
-    softmax_loss_function: Function (labels-batch, inputs-batch) -> loss-batch
-      to be used instead of the standard softmax (the default if this is None).
-    name: Optional name for this operation, default: "sequence_loss_by_example".
-
-  Returns:
-    1D batch-sized float Tensor: The log-perplexity for each sequence.
-
-  Raises:
-    ValueError: If len(logits) is different from len(targets) or len(weights).
-  """
-  if len(targets) != len(logits) or len(weights) != len(logits):
-    raise ValueError("Lengths of logits, weights, and targets must be the same "
-                     "%d, %d, %d." % (len(logits), len(weights), len(targets)))
-  with ops.name_scope(name, "sequence_loss_by_example",
-                      logits + targets + weights):
-    log_perp_list = []
-    for logit, target, weight in zip(logits, targets, weights):
-
-      # Possible speedup, if weight = 0 --> crossent = 0, skip calculation.
-
-      if softmax_loss_function is None:
-
-        # tf.Print(target, [target, tf.shape(target)], message="Target: ", first_n=3)
-        # tf.Print(logit, [logit, tf.shape(logit)], message="logit: ", first_n=3)
-        # print('target ,', target)
-        # print('logit ,', logit)
-
-        # TODO(irving,ebrevdo): This reshape is needed because
-        # sequence_loss_by_example is called with scalars sometimes, which
-        # violates our general scalar strictness policy.
-        target = array_ops.reshape(target, [-1])
-        crossent = nn_ops.sparse_softmax_cross_entropy_with_logits(
-            labels=target, logits=logit)
-      else:
-        crossent = softmax_loss_function(target, logit)
-      log_perp_list.append(crossent * weight)
-    log_perps = math_ops.add_n(log_perp_list)
-    if average_across_timesteps:
-      total_size = math_ops.add_n(weights)
-      total_size += 1e-12  # Just to avoid division by 0 for all-0 weights.
-      log_perps /= total_size
-  return log_perps
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-################
-
 def data_type():
   return tf.float16 if FLAGS.use_fp16 else tf.float32
 
@@ -259,7 +170,9 @@ class PTBModel(object):
     #### Answer: yes. But that means it transfers to my chatbot easier anyways. So I like it like this.
 
 
+    #################################
     #### BEGIN POINTER SENTINEL #####
+    #################################
 
     # Can only use previous hidden states, resulting in a lower-diagonal matrix.
     def getLowerDiag(inputs):
@@ -345,19 +258,32 @@ class PTBModel(object):
 
     p_final = pointer_contrib + vocab_contrib
     
-    
-
-
 
     print('input data, ',input_.input_data)
     print('targets, ',input_.targets)
 
-    loss = sequence_loss_by_example(
-        [logits],
-        [tf.reshape(input_.targets, [-1])],
-        [tf.ones([batch_size * num_steps], dtype=data_type())])
-    self._cost = cost = tf.reduce_sum(loss) / batch_size
-    self._final_state = state
+    targets = tf.reshape(input_.targets, [-1])
+    
+
+    # sudo code:
+    # loss = -np.log(p_final[target])
+    # self._cost = cost = tf.reduce_sum(loss) / batch_size
+    # self._final_state = state
+    ## NOT IMPLEMENTED YET.
+
+
+    # REPLACES:
+    # loss = sequence_loss_by_example(
+    #     [logits],
+    #     [tf.reshape(input_.targets, [-1])],
+    #     [tf.ones([batch_size * num_steps], dtype=data_type())])
+    # self._cost = cost = tf.reduce_sum(loss) / batch_size
+    # self._final_state = state
+
+
+    #################################
+    ####   END POINTER SENTINEL #####
+    #################################
 
     if not is_training:
       return
