@@ -158,49 +158,6 @@ def sequence_loss_by_example(logits,
 
 
 
-def custom_sequence_loss_by_example(logits,
-                             targets,
-                             weights,
-                             average_across_timesteps=True,
-                             softmax_loss_function=None,
-                             name=None):
- 
-  if len(targets) != len(logits) or len(weights) != len(logits):
-    raise ValueError("Lengths of logits, weights, and targets must be the same "
-                     "%d, %d, %d." % (len(logits), len(weights), len(targets)))
-  with ops.name_scope(name, "sequence_loss_by_example",
-                      logits + targets + weights):
-    log_perp_list = []
-    for logit, target, weight in zip(logits, targets, weights):
-
-      # Possible speedup, if weight = 0 --> crossent = 0, skip calculation.
-
-      if softmax_loss_function is None:
-
-        # tf.Print(target, [target, tf.shape(target)], message="Target: ", first_n=3)
-        # tf.Print(logit, [logit, tf.shape(logit)], message="logit: ", first_n=3)
-        # print('target ,', target)
-        # print('logit ,', logit)
-
-        # TODO(irving,ebrevdo): This reshape is needed because
-        # sequence_loss_by_example is called with scalars sometimes, which
-        # violates our general scalar strictness policy.
-        target = array_ops.reshape(target, [-1])
-        crossent = nn_ops.sparse_softmax_cross_entropy_with_logits(
-            labels=target, logits=logit)
-      else:
-        crossent = softmax_loss_function(target, logit)
-      log_perp_list.append(crossent * weight)
-    log_perps = math_ops.add_n(log_perp_list)
-    if average_across_timesteps:
-      total_size = math_ops.add_n(weights)
-      total_size += 1e-12  # Just to avoid division by 0 for all-0 weights.
-      log_perps /= total_size
-  return log_perps
-
-
-
-
 
 
 
@@ -289,15 +246,65 @@ class PTBModel(object):
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
     logits = tf.matmul(output, softmax_w) + softmax_b
+    p_vocab = tf.nn.softmax(logits)
 
 
+    #### QUESTION: why is every hidden state in this calculation.
+    #### ANSWER: target is simply input shifted by one. Thus we are actually making BATCH_SIZE*STEPS predictions each batch.
+    # print('outputs ', outputs) # list STEPS , tensor BATCHSIZE x HIDDEN_STATE_SIZE 
+    # print('output ', output) # STEPS*BATCHSIZE x HIDDEN_STATE_SIZE
+    # print('logits ', logits) ## STEPS*BATCHSIZE x VOCABSIZE
+    # Even TARGET is of size STEPS*BATCHSIZE.
+    #### NEXT QUESTION: does that mean that the first prediction only has access to one hidden word? Whereas the later ones have access to many?
+    #### Answer: yes. But that means it transfers to my chatbot easier anyways. So I like it like this.
 
+
+    #### BEGIN POINTER SENTINEL #####
 
     # Can only use previous hidden states, resulting in a lower-diagonal matrix.
     def getLowerDiag(inputs):
       inputs_matrix = tf.reshape(tf.tile(inputs, [tf.shape(inputs)[0]]), [-1,tf.shape(inputs)[0]])
       result = tf.matrix_band_part(inputs_matrix, -1, 0)
+      result = tf.transpose(result, perm=[1, 0, 2]) 
       return result
+
+    def concatenateColumnOntoMatrix(myMatrix, myColumn):
+      return tf.transpose(tf.concat([tf.transpose(myMatrix),[myColumn]], 0))
+
+    def splitOffG(myMatrix):
+      g = tf.gather(tf.transpose(myMatrix), tf.shape(myMatrix)[1]-1)
+      z = tf.gather(tf.transpose(myMatrix), tf.range(tf.shape(myMatrix)[1]-1))
+      return z,g
+
+    def returnSparse(values, mask, indices, vocab_size):
+      ########
+      # EXAMPLE:
+      # Input parameters:
+      # values = tf.constant([[1.0, 0.0, 0.0], [0.5, 0.5, 0.0], [0.2, 0.5, 0.3]])
+      # mask = tf.constant([[1, 0, 0], [1, 1, 0], [1, 1, 1]])
+      # indices = tf.constant([[5, 0, 0], [2, 3, 0], [3, 7, 8]])
+      # vocab_size = 10
+      # Returns:
+      # [array([[ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
+      #          1.        ,  0.        ,  0.        ,  0.        ,  0.        ],
+      #        [ 0.        ,  0.        ,  0.5       ,  0.5       ,  0.        ,
+      #          0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
+      #        [ 0.        ,  0.        ,  0.        ,  0.2       ,  0.        ,
+      #          0.        ,  0.        ,  0.5       ,  0.30000001,  0.        ]], dtype=float32)]
+      #########
+      # shift 1's-->0's, 0's--> -1's. 
+      newIndicies = (mask - 1) + indices
+      # LxV
+      sizeL = tf.one_hot(newIndicies, vocab_size,dtype=tf.float32)
+      # execute multiplication to insert the values.
+      originalShape = tf.shape(sizeL)
+      sizeL = tf.reshape(sizeL, [-1, vocab_size])
+      values = tf.reshape(values, [-1])
+      r = tf.transpose(tf.multiply(tf.transpose(sizeL),values))
+      r = tf.reshape(r,originalShape)
+      # reduce extra L dimensions.
+      r = tf.reduce_sum(r, 1)
+      return r
 
 
     # Pointer Sentinel: calculate q's. q = tanh(W*h + b)
@@ -312,84 +319,33 @@ class PTBModel(object):
     z_i = tf.matmul(output,q) # STEPS*BATCHSIZE
 
 
-    # Cast to size of vocabulary --> STEPS*BATCHSIZE x VOCAB_SIZE
+    # Cast to new size --> STEPS*BATCHSIZE x L
     z_shape_of_input = tf.reshape(zi, [batch_size, num_steps])
-    resultBatch = tf.map_fn(lambda x: getLowerDiag(x), z_shape_of_input)
-    z_dense = tf.transpose(resultBatch, perm=[1, 0, 2]) 
-
-    
-
-    # Indexes to place numbers.
-    inputMappingTemp = tf.map_fn(lambda x: getLowerDiag(x), input_.input_data)
-    inputMapping = tf.transpose(inputMappingTemp, perm=[1, 0, 2]) 
-
-
+    z_dense = tf.map_fn(lambda x: getLowerDiag(x), z_shape_of_input)
+    z = concatenateColumnOntoMatrix(z_dense, g)
+    # Grab masks for z_dense
     masks = tf.ones([batch_size, num_steps])
     masks = tf.map_fn(lambda x: getLowerDiag(x), masks)
-    masks = tf.transpose(masks, perm=[1, 0, 2]) 
+    masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g))
+
+    # Do the softmax on z. Awesome trick.
+    z_softmaxed = tf.nn.softmax(tf.log(masks) + z)
+    p_ptr_dense, g = splitOffG(z_softmaxed)
 
 
 
-
-    # input_.input_data
-
-
-    # z_i or output --> [step0Batch0Hidden, step0Batch1Hidden, ... step1Batch0Hidden, ...stepNbatchNHidden]
+    # Indexes to place numbers when casting to vocab size.
+    inputMapping = tf.map_fn(lambda x: getLowerDiag(x), input_.input_data)
 
 
-    ### Need to:
-    # create STEP*BATCHSIZE x VOCAB_SIZE "variable?" initialized with zeros. --> 
-    # need to grab out particular indexes of "z_i" and write them. "FOR" loop. 
+    p_ptr = returnSparse(p_ptr_dense, masks, inputMapping, vocab_size)
 
-    # 
+    pointer_contrib = tf.transpose(tf.multiply(tf.transpose(p_ptr), (1-g)))
+    vocab_contrib = tf.transpose(tf.multiply(tf.transpose(p_vocab), g))
 
-
-
-
-
-
-
-
-
-
-
-
-
-    # unmasked z for all num_steps*batch_size instances.
-    z = tf.tile(z_i, num_steps*batch_size, name='z')
-
-
-    # create mask. Apply it.
-
-
-    # append g.
-    # tf.reshape(z_i, 
-    # z_g = tf.concat([zi,g], 1) # 
-
-
-    # z_g --> (STEPS x BATCHSIZE x HIDDENSIZE) + STEPS X BATCHSIZE
-
-
-
+    p_final = pointer_contrib + vocab_contrib
     
-
-
-
-
-    # TODO's.
-    # time_step --> L
-
-
-    #### QUESTION: why is every hidden state in this calculation.
-    #### ANSWER: target is simply input shifted by one. Thus we are actually making BATCH_SIZE*STEPS predictions each batch.
-    # print('outputs ', outputs) # list STEPS , tensor BATCHSIZE x HIDDEN_STATE_SIZE 
-    # print('output ', output) # STEPS*BATCHSIZE x HIDDEN_STATE_SIZE
-    # print('logits ', logits) ## STEPS*BATCHSIZE x VOCABSIZE
-    # Even TARGET is of size STEPS*BATCHSIZE.
-    #### NEXT QUESTION: does that mean that the first prediction only has access to one hidden word? Whereas the later ones have access to many?
-    #### Answer: yes. But that means it transfers to my chatbot easier anyways. So I like it like this.
-
-
+    
 
 
 

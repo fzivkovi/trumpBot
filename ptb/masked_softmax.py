@@ -19,9 +19,25 @@ def softmax_with_batch_and_mask(valuesBatch, maskBatch):
 	return resultBatch	
 
 
-
 s = tf.InteractiveSession()
-valuesBatch = tf.constant([[0.1,0.1,0.1,0.1, 0, 0], [0.2,0.2,0.2,0.2, 0, 0], [0.3,0.3,0.3,0.3, 0, 0], [0.4,0.5,0.6,0.7, 0, 0]], tf.float32)
-maskBatch = tf.constant([[1,1,1,1,0,0],[1,1,1,1,0,0],[1,1,1,1,0,0],[1,1,1,1,0,0]], tf.float32)
-resultBatch = softmax_with_batch_and_mask(valuesBatch, maskBatch)
-print s.run(resultBatch)
+# valuesBatch = tf.constant([[0.1,0.1,0.1,0.1, 0, 0], [0.2,0.2,0.2,0.2, 0, 0], [0.3,0.3,0.3,0.3, 0, 0], [0.4,0.5,0.6,0.7, 0, 0]], tf.float32)
+# maskBatch = tf.constant([[1,1,1,1,0,0],[1,1,1,1,0,0],[1,1,1,1,0,0],[1,1,1,1,0,0]], tf.float32)
+# resultBatch = softmax_with_batch_and_mask(valuesBatch, maskBatch)
+# print s.run(resultBatch)
+
+
+
+# def softmax_with_matrix_and_mask(values, masks):
+
+
+
+
+v = tf.constant([[[0.1,0.1,0.1,0.1, 0, 0], [0.2,0.2,0.2,0.2, 0, 0]], [[0.3,0.3,0.3,0.3, 0, 0], [0.4,0.5,0.6,0.7, 0, 0]]], tf.float32)
+m = tf.constant([[[1,1,1,1,0,0],[1,1,1,1,0,0]],[[1,1,1,1,0,0],[1,1,1,1,0,0]]], tf.float32)
+
+m = tf.nn.softmax(tf.log(m) + v)
+
+# results = softmax_with_batch_and_mask(tf.concat(v,0), tf.concat(m,0))
+print s.run(m)
+
+# softmax_with_batch_and_mask(results[0], results[1])
