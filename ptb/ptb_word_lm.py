@@ -28,6 +28,10 @@ There are 3 supported model configurations:
 | large  | 55     | 37.87 |  82.62 |  78.29
 The exact results may vary depending on the random initialization.
 
+*** OUR WORDS HERE ***
+
+*****
+
 The hyperparameters used in the model:
 - init_scale - the initial scale of the weights
 - learning_rate - the initial value of the learning rate
@@ -124,6 +128,9 @@ def sequence_loss_by_example(logits,
                       logits + targets + weights):
     log_perp_list = []
     for logit, target, weight in zip(logits, targets, weights):
+
+      # Possible speedup, if weight = 0 --> crossent = 0, skip calculation.
+
       if softmax_loss_function is None:
 
         # tf.Print(target, [target, tf.shape(target)], message="Target: ", first_n=3)
@@ -147,6 +154,49 @@ def sequence_loss_by_example(logits,
       log_perps /= total_size
   return log_perps
 
+
+
+
+
+def custom_sequence_loss_by_example(logits,
+                             targets,
+                             weights,
+                             average_across_timesteps=True,
+                             softmax_loss_function=None,
+                             name=None):
+ 
+  if len(targets) != len(logits) or len(weights) != len(logits):
+    raise ValueError("Lengths of logits, weights, and targets must be the same "
+                     "%d, %d, %d." % (len(logits), len(weights), len(targets)))
+  with ops.name_scope(name, "sequence_loss_by_example",
+                      logits + targets + weights):
+    log_perp_list = []
+    for logit, target, weight in zip(logits, targets, weights):
+
+      # Possible speedup, if weight = 0 --> crossent = 0, skip calculation.
+
+      if softmax_loss_function is None:
+
+        # tf.Print(target, [target, tf.shape(target)], message="Target: ", first_n=3)
+        # tf.Print(logit, [logit, tf.shape(logit)], message="logit: ", first_n=3)
+        # print('target ,', target)
+        # print('logit ,', logit)
+
+        # TODO(irving,ebrevdo): This reshape is needed because
+        # sequence_loss_by_example is called with scalars sometimes, which
+        # violates our general scalar strictness policy.
+        target = array_ops.reshape(target, [-1])
+        crossent = nn_ops.sparse_softmax_cross_entropy_with_logits(
+            labels=target, logits=logit)
+      else:
+        crossent = softmax_loss_function(target, logit)
+      log_perp_list.append(crossent * weight)
+    log_perps = math_ops.add_n(log_perp_list)
+    if average_across_timesteps:
+      total_size = math_ops.add_n(weights)
+      total_size += 1e-12  # Just to avoid division by 0 for all-0 weights.
+      log_perps /= total_size
+  return log_perps
 
 
 
@@ -234,16 +284,113 @@ class PTBModel(object):
         outputs.append(cell_output)
 
     output = tf.reshape(tf.concat(outputs, 1), [-1, size])
+    # output --> [step0Batch0Hidden, step0Batch1Hidden, ... step1Batch0Hidden, ...stepNbatchNHidden]
     softmax_w = tf.get_variable(
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
     logits = tf.matmul(output, softmax_w) + softmax_b
 
-    # ### QUESTION: why is every hidden state in this calculation.
+
+
+
+    # Can only use previous hidden states, resulting in a lower-diagonal matrix.
+    def getLowerDiag(inputs):
+      inputs_matrix = tf.reshape(tf.tile(inputs, [tf.shape(inputs)[0]]), [-1,tf.shape(inputs)[0]])
+      result = tf.matrix_band_part(inputs_matrix, -1, 0)
+      return result
+
+
+    # Pointer Sentinel: calculate q's. q = tanh(W*h + b)
+    W_for_q = tf.get_variable("W_for_q", [size, size], dtype=data_type())
+    b_for_q = tf.get_variable("b_for_q", [size], dtype=data_type())
+    q = tf.tanh(tf.matmul(output, W_for_q) + b_for_q, name='q')
+
+    sentinel = tf.get_variable("s", [size], dtype=data_type())
+    # sentinel needs to be multiplied with STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE g's. 
+    g = tf.matmul(output,sentinel) # STEPS*BATCHSIZE
+    ## calculate pointer outputs, z. [zi = inner(q, hi)] concat with [q*s]. ##
+    z_i = tf.matmul(output,q) # STEPS*BATCHSIZE
+
+
+    # Cast to size of vocabulary --> STEPS*BATCHSIZE x VOCAB_SIZE
+    z_shape_of_input = tf.reshape(zi, [batch_size, num_steps])
+    resultBatch = tf.map_fn(lambda x: getLowerDiag(x), z_shape_of_input)
+    z_dense = tf.transpose(resultBatch, perm=[1, 0, 2]) 
+
+    
+
+    # Indexes to place numbers.
+    inputMappingTemp = tf.map_fn(lambda x: getLowerDiag(x), input_.input_data)
+    inputMapping = tf.transpose(inputMappingTemp, perm=[1, 0, 2]) 
+
+
+    masks = tf.ones([batch_size, num_steps])
+    masks = tf.map_fn(lambda x: getLowerDiag(x), masks)
+    masks = tf.transpose(masks, perm=[1, 0, 2]) 
+
+
+
+
+    # input_.input_data
+
+
+    # z_i or output --> [step0Batch0Hidden, step0Batch1Hidden, ... step1Batch0Hidden, ...stepNbatchNHidden]
+
+
+    ### Need to:
+    # create STEP*BATCHSIZE x VOCAB_SIZE "variable?" initialized with zeros. --> 
+    # need to grab out particular indexes of "z_i" and write them. "FOR" loop. 
+
+    # 
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # unmasked z for all num_steps*batch_size instances.
+    z = tf.tile(z_i, num_steps*batch_size, name='z')
+
+
+    # create mask. Apply it.
+
+
+    # append g.
+    # tf.reshape(z_i, 
+    # z_g = tf.concat([zi,g], 1) # 
+
+
+    # z_g --> (STEPS x BATCHSIZE x HIDDENSIZE) + STEPS X BATCHSIZE
+
+
+
+    
+
+
+
+
+    # TODO's.
+    # time_step --> L
+
+
+    #### QUESTION: why is every hidden state in this calculation.
+    #### ANSWER: target is simply input shifted by one. Thus we are actually making BATCH_SIZE*STEPS predictions each batch.
     # print('outputs ', outputs) # list STEPS , tensor BATCHSIZE x HIDDEN_STATE_SIZE 
     # print('output ', output) # STEPS*BATCHSIZE x HIDDEN_STATE_SIZE
     # print('logits ', logits) ## STEPS*BATCHSIZE x VOCABSIZE
-    # Even TARGET is of size STEPS*BATCHSIZE. ????
+    # Even TARGET is of size STEPS*BATCHSIZE.
+    #### NEXT QUESTION: does that mean that the first prediction only has access to one hidden word? Whereas the later ones have access to many?
+    #### Answer: yes. But that means it transfers to my chatbot easier anyways. So I like it like this.
+
+
+
 
 
     print('input data, ',input_.input_data)
