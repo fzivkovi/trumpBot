@@ -225,15 +225,14 @@ class PTBModel(object):
     b_for_q = tf.get_variable("b_for_q", [size], dtype=data_type())
     q = tf.tanh(tf.matmul(output, W_for_q) + b_for_q, name='q')
 
-    sentinel = tf.get_variable("s", [size], dtype=data_type())
+    sentinel = tf.get_variable("s", [size,1], dtype=data_type())
     # sentinel needs to be multiplied with STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE g's. 
     g = tf.matmul(output,sentinel) # STEPS*BATCHSIZE
     ## calculate pointer outputs, z. [zi = inner(q, hi)] concat with [q*s]. ##
-    z_i = tf.matmul(output,q) # STEPS*BATCHSIZE
-
+    z_i = tf.reduce_sum(tf.multiply(output, q), 1, keep_dims=True)
 
     # Cast to new size --> STEPS*BATCHSIZE x L
-    z_shape_of_input = tf.reshape(zi, [batch_size, num_steps])
+    z_shape_of_input = tf.reshape(z_i, [batch_size, num_steps])
     z_dense = tf.map_fn(lambda x: getLowerDiag(x), z_shape_of_input)
     z = concatenateColumnOntoMatrix(z_dense, g)
     # Grab masks for z_dense
@@ -244,7 +243,6 @@ class PTBModel(object):
     # Do the softmax on z. Awesome trick.
     z_softmaxed = tf.nn.softmax(tf.log(masks) + z)
     p_ptr_dense, g = splitOffG(z_softmaxed)
-
 
 
     # Indexes to place numbers when casting to vocab size.
@@ -263,14 +261,14 @@ class PTBModel(object):
     print('targets, ',input_.targets)
 
     targets = tf.reshape(input_.targets, [-1])
-    
 
-    # sudo code:
-    # loss = -np.log(p_final[target])
-    # self._cost = cost = tf.reduce_sum(loss) / batch_size
-    # self._final_state = state
-    ## NOT IMPLEMENTED YET.
 
+    # Calculate loss by creating a one-hot mask (target), multiply, then reduce_sum along that axis.
+    target_mask = tf.one_hot(targets, vocab_size,dtype=tf.float32)
+    after_mask = tf.reduce_sum(target_mask * p_final, 1)
+    loss = -np.log(after_mask)
+    self._cost = cost = tf.reduce_sum(loss) / batch_size
+    self._final_state = state
 
     # REPLACES:
     # loss = sequence_loss_by_example(
