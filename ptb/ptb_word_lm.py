@@ -178,7 +178,6 @@ class PTBModel(object):
     def getLowerDiag(inputs):
       inputs_matrix = tf.reshape(tf.tile(inputs, [tf.shape(inputs)[0]]), [-1,tf.shape(inputs)[0]])
       result = tf.matrix_band_part(inputs_matrix, -1, 0)
-      result = tf.transpose(result, perm=[1, 0, 2]) 
       return result
 
     def concatenateColumnOntoMatrix(myMatrix, myColumn):
@@ -234,10 +233,13 @@ class PTBModel(object):
     # Cast to new size --> STEPS*BATCHSIZE x L
     z_shape_of_input = tf.reshape(z_i, [batch_size, num_steps])
     z_dense = tf.map_fn(lambda x: getLowerDiag(x), z_shape_of_input)
+    z_dense = tf.transpose(z_dense, perm=[1, 0, 2]) 
+
     z = concatenateColumnOntoMatrix(z_dense, g)
     # Grab masks for z_dense
     masks = tf.ones([batch_size, num_steps])
     masks = tf.map_fn(lambda x: getLowerDiag(x), masks)
+    masks = tf.transpose(masks, perm=[1, 0, 2]) 
     masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g))
 
     # Do the softmax on z. Awesome trick.
@@ -247,7 +249,7 @@ class PTBModel(object):
 
     # Indexes to place numbers when casting to vocab size.
     inputMapping = tf.map_fn(lambda x: getLowerDiag(x), input_.input_data)
-
+    inputMapping = tf.transpose(inputMapping, perm=[1, 0, 2]) 
 
     p_ptr = returnSparse(p_ptr_dense, masks, inputMapping, vocab_size)
 
@@ -262,21 +264,12 @@ class PTBModel(object):
 
     targets = tf.reshape(input_.targets, [-1])
 
-
     # Calculate loss by creating a one-hot mask (target), multiply, then reduce_sum along that axis.
     target_mask = tf.one_hot(targets, vocab_size,dtype=tf.float32)
     after_mask = tf.reduce_sum(target_mask * p_final, 1)
     loss = -np.log(after_mask)
     self._cost = cost = tf.reduce_sum(loss) / batch_size
     self._final_state = state
-
-    # REPLACES:
-    # loss = sequence_loss_by_example(
-    #     [logits],
-    #     [tf.reshape(input_.targets, [-1])],
-    #     [tf.ones([batch_size * num_steps], dtype=data_type())])
-    # self._cost = cost = tf.reduce_sum(loss) / batch_size
-    # self._final_state = state
 
 
     #################################

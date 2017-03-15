@@ -29,6 +29,6 @@ weights = tf.map_fn(lambda x: getLowerDiag(x), tf.transpose(weights))
 weights = tf.transpose(weights, perm=[1, 0, 2])
 
 
-print s.run([resultBatch, z_s])
+print s.run([resultBatch, z_s, weights])
 
 
