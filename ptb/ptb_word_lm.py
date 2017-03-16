@@ -192,7 +192,7 @@ class PTBModel(object):
     def splitOffG(myMatrix):
       g = tf.gather(tf.transpose(myMatrix), tf.shape(myMatrix)[1]-1)
       z = tf.gather(tf.transpose(myMatrix), tf.range(tf.shape(myMatrix)[1]-1))
-      return z,g
+      return tf.transpose(z),g
 
     def returnSparse(values, mask, indices, vocab_size):
       ########
@@ -211,7 +211,9 @@ class PTBModel(object):
       #          0.        ,  0.        ,  0.5       ,  0.30000001,  0.        ]], dtype=float32)]
       #########
       # shift 1's-->0's, 0's--> -1's. 
-      newIndicies = (mask - 1.0) + tf.to_float(indices)
+
+      newIndicies = (tf.to_int32(mask) - 1) + indices
+
       # LxV
       sizeL = tf.one_hot(newIndicies, vocab_size,dtype=tf.float32)
       # execute multiplication to insert the values.
@@ -253,13 +255,16 @@ class PTBModel(object):
 
     # Do the softmax on z. Awesome trick.
     z_softmaxed = tf.nn.softmax(tf.log(masks) + z)
+    # Take g out.
     p_ptr_dense, g = splitOffG(z_softmaxed)
-
+    masks, __ = splitOffG(masks)
 
     # Indexes to place numbers when casting to vocab size.
     inputMapping = tf.map_fn(lambda x: getLowerDiag(x), input_.input_data)
     inputMapping = tf.transpose(inputMapping, perm=[1, 0, 2]) 
+    inputMapping = tf.reshape(inputMapping, [num_steps*batch_size, num_steps])
 
+    # Return p_ptr of size [step_size*batch_size x vocab_size]
     p_ptr = returnSparse(p_ptr_dense, masks, inputMapping, vocab_size)
 
     pointer_contrib = tf.transpose(tf.multiply(tf.transpose(p_ptr), (1-g)))
@@ -276,7 +281,7 @@ class PTBModel(object):
     # Calculate loss by creating a one-hot mask (target), multiply, then reduce_sum along that axis.
     target_mask = tf.one_hot(targets, vocab_size,dtype=tf.float32)
     after_mask = tf.reduce_sum(target_mask * p_final, 1)
-    loss = -np.log(after_mask)
+    loss = -tf.log(after_mask)
     self._cost = cost = tf.reduce_sum(loss) / batch_size
     self._final_state = state
 
