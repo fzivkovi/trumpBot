@@ -1,19 +1,43 @@
-# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
+"""
 
-"""Example / benchmark for building a PTB LSTM model.
+Filip Zivkovic, Derek Chen
+CS224N, 2017, One Piece of Final Project.
+Isolated test of Pointer Sentinel Mixture Model on Penn Treebank data.
+
+#################################
+## Grabbing the data and run ####
+#################################
+
+The data required for this example is in the data/ dir of the
+PTB dataset from Tomas Mikolov's webpage:
+$ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
+$ tar xvf simple-examples.tgz
+
+To run:
+
+$ python ptb_word_lm.py --data_path=simple-examples/data/
+
+##################
+## Description ###
+##################
+
+Executed an isolated test. Only change: adding pointer sentinel.
+Intent is to analyze how this one change effects results. 
+
+The starter code for this is was in models/tutorials/rnn/ptb in the TensorFlow models repo.
+Tutorial is here: https://www.tensorflow.org/tutorials/recurrent
+Original Mode:
+  (Zaremba, et. al.) Recurrent Neural Network Regularization
+  http://arxiv.org/abs/1409.2329
+Adaptation:
+  Pointer Sentinel Mixtrue Model
+  https://arxiv.org/abs/1609.07843
+
+#################################
+#### Original Models Results  ###
+#################################
+
+Example / benchmark for building a PTB LSTM model.
 
 Trains the model described in:
 (Zaremba, et. al.) Recurrent Neural Network Regularization
@@ -28,9 +52,22 @@ There are 3 supported model configurations:
 | large  | 55     | 37.87 |  82.62 |  78.29
 The exact results may vary depending on the random initialization.
 
-*** OUR WORDS HERE ***
+#################################
+#### Pointer Sentinel Results  ##
+#################################
 
-*****
+===========================================
+| config | epochs | train | valid  | test
+===========================================
+| small  | ?      | ????? | ?????? | ??????
+| medium | ?      | ????? | ?????  |  ?????
+| large  | ?      | ????? | ?????? |  ?????
+The exact results may vary depending on the random initialization.
+
+
+#################################
+#### Hyperparameters, unchanged #
+#################################
 
 The hyperparameters used in the model:
 - init_scale - the initial scale of the weights
@@ -44,16 +81,6 @@ The hyperparameters used in the model:
 - keep_prob - the probability of keeping weights in the dropout layer
 - lr_decay - the decay of the learning rate for each epoch after "max_epoch"
 - batch_size - the batch size
-
-The data required for this example is in the data/ dir of the
-PTB dataset from Tomas Mikolov's webpage:
-
-$ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
-$ tar xvf simple-examples.tgz
-
-To run:
-
-$ python ptb_word_lm.py --data_path=simple-examples/data/
 
 """
 from __future__ import absolute_import
@@ -157,8 +184,18 @@ class PTBModel(object):
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
     logits = tf.matmul(output, softmax_w) + softmax_b
+
+
+    #########################################################
+    ## Can't use sparse_softmax_cross_entropy_with_logits, 
+    ## because cross-entropy needs to be calcualted later.
+    #########################################################
     p_vocab = tf.nn.softmax(logits)
 
+
+    #################################
+    #### Analysis of initial code ###
+    #################################
 
     #### QUESTION: why is every hidden state in this calculation.
     #### ANSWER: target is simply input shifted by one. Thus we are actually making BATCH_SIZE*STEPS predictions each batch.
@@ -169,27 +206,28 @@ class PTBModel(object):
     #### NEXT QUESTION: does that mean that the first prediction only has access to one hidden word? Whereas the later ones have access to many?
     #### Answer: yes. But that means it transfers to my chatbot easier anyways. So I like it like this.
 
-
     #################################
     #### BEGIN POINTER SENTINEL #####
     #################################
 
-    # Can only use previous hidden states, resulting in a lower-diagonal matrix.
+    # Can only use previous hidden states in the prediction.
+    # Tiles data and then returns lower-diagonal matrix.
+    # Because of this, the length of "L" varies.
     def getLowerDiag(inputs):
       inputs_matrix = tf.reshape(tf.tile(inputs, [tf.shape(inputs)[0]]), [-1,tf.shape(inputs)[0]])
       result = tf.matrix_band_part(inputs_matrix, -1, 0)
       return result
 
-    # def concatenateColumnOntoMatrix(myMatrix, myColumn):
-    #   return tf.transpose(tf.concat([tf.transpose(myMatrix),[myColumn]], 0))
-
     def concatenateColumnOntoMatrix(z, g, num_steps, batch_size):
+      # Creativity. Done by multiplying values of g with one-hot column in sparse matrix, and adding
+      # the two matricies together.
       z_with_pad = tf.pad(z, [[0,0],[0,1]], mode='CONSTANT', name=None)
       sparseMatrix = tf.one_hot(tf.tile([num_steps],[num_steps*batch_size]), num_steps+1, dtype=tf.float32)
       result = sparseMatrix * g + z_with_pad
       return result
 
     def splitOffG(myMatrix):
+      # Removes the last column from the matrix, returns them seperately.
       g = tf.gather(tf.transpose(myMatrix), tf.shape(myMatrix)[1]-1)
       z = tf.gather(tf.transpose(myMatrix), tf.range(tf.shape(myMatrix)[1]-1))
       return tf.transpose(z),g
@@ -226,6 +264,9 @@ class PTBModel(object):
       r = tf.reduce_sum(r, 1)
       return r
 
+    #########################################################
+    ## Calculate q, g. Trainable parameters: W_for_q, b_for_q, s
+    #########################################################
 
     # Pointer Sentinel: calculate q's. q = tanh(W*h + b)
     W_for_q = tf.get_variable("W_for_q", [size, size], dtype=data_type())
@@ -233,9 +274,13 @@ class PTBModel(object):
     q = tf.tanh(tf.matmul(output, W_for_q) + b_for_q, name='q')
 
     sentinel = tf.get_variable("s", [size,1], dtype=data_type())
-    # sentinel needs to be multiplied with STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE g's. 
+    # sentinel undergoes reduction STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE to result in g's. 
     g = tf.matmul(output,sentinel) # STEPS*BATCHSIZE
-    ## calculate pointer outputs, z. [zi = inner(q, hi)] concat with [q*s]. ##
+
+    #########################################################
+    ## Calculate pointer outputs, z. [zi = inner(q, hi)] concat with [q*s]. 
+    #########################################################
+
     z_i = tf.reduce_sum(tf.multiply(output, q), 1, keep_dims=True)
 
     # Cast to new size --> STEPS*BATCHSIZE x L
@@ -253,6 +298,10 @@ class PTBModel(object):
     masks = tf.reshape(masks, [num_steps*batch_size, num_steps])
     masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g, dtype=tf.float32), num_steps, batch_size)
 
+    #########################################################
+    ## Calculate masked softmax, transform to sparse matrix 
+    #########################################################
+
     # Do the softmax on z. Awesome trick.
     z_softmaxed = tf.nn.softmax(tf.log(masks) + z)
     # Take g out.
@@ -267,11 +316,14 @@ class PTBModel(object):
     # Return p_ptr of size [step_size*batch_size x vocab_size]
     p_ptr = returnSparse(p_ptr_dense, masks, inputMapping, vocab_size)
 
+    #########################################################
+    ## p = g * p_vocab + (1 - g) * p_train, then apply X-entropy
+    #########################################################
+
     pointer_contrib = tf.transpose(tf.multiply(tf.transpose(p_ptr), (1-g)))
     vocab_contrib = tf.transpose(tf.multiply(tf.transpose(p_vocab), g))
 
     p_final = pointer_contrib + vocab_contrib
-    
 
     print('input data, ',input_.input_data)
     print('targets, ',input_.targets)
@@ -284,7 +336,6 @@ class PTBModel(object):
     loss = -tf.log(after_mask)
     self._cost = cost = tf.reduce_sum(loss) / batch_size
     self._final_state = state
-
 
     #################################
     ####   END POINTER SENTINEL #####
@@ -340,7 +391,7 @@ class SmallConfig(object):
   learning_rate = 1.0
   max_grad_norm = 5
   num_layers = 2
-  num_steps = 15
+  num_steps = 20
   hidden_size = 200
   max_epoch = 4
   max_max_epoch = 13
