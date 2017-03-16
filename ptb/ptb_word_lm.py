@@ -190,7 +190,7 @@ class PTBModel(object):
 
     #########################################################
     ## Can't use sparse_softmax_cross_entropy_with_logits, 
-    ## because cross-entropy needs to be calcualted later.
+    ## because cross-entropy needs to be calcualted after summation.
     #########################################################
     p_vocab = tf.nn.softmax(logits)
 
@@ -301,7 +301,7 @@ class PTBModel(object):
     masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g, dtype=tf.float32), num_steps, batch_size)
 
     #########################################################
-    ## Calculate masked softmax, transform to sparse matrix 
+    ## Calculate masked softmax for p_ptr, transform to sparse matrix 
     #########################################################
 
     # Do the softmax on z. Awesome trick.
