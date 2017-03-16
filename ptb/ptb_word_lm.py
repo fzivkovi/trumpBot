@@ -8,6 +8,8 @@ Isolated test of Pointer Sentinel Mixture Model on Penn Treebank data.
 ## Grabbing the data and run ####
 #################################
 
+Dependencies: Tensorflow Version 1.0
+
 The data required for this example is in the data/ dir of the
 PTB dataset from Tomas Mikolov's webpage:
 $ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
@@ -550,7 +552,7 @@ def main(_):
 
       if FLAGS.save_path:
         print("Saving model to %s." % FLAGS.save_path)
-        sv.saver.save(session, FLAGS.save_path, global_step=sv.global_step)
+        sv.saver.save(session, FLAGS.save_path, global_step=sv.global_step, keep_checkpoint_every_n_hours=2)
 
 
 if __name__ == "__main__":
