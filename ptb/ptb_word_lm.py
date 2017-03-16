@@ -180,8 +180,14 @@ class PTBModel(object):
       result = tf.matrix_band_part(inputs_matrix, -1, 0)
       return result
 
-    def concatenateColumnOntoMatrix(myMatrix, myColumn):
-      return tf.transpose(tf.concat([tf.transpose(myMatrix),[myColumn]], 0))
+    # def concatenateColumnOntoMatrix(myMatrix, myColumn):
+    #   return tf.transpose(tf.concat([tf.transpose(myMatrix),[myColumn]], 0))
+
+    def concatenateColumnOntoMatrix(z, g, num_steps, batch_size):
+      z_with_pad = tf.pad(z, [[0,0],[0,1]], mode='CONSTANT', name=None)
+      sparseMatrix = tf.one_hot(tf.tile([num_steps],[num_steps*batch_size]), num_steps+1, dtype=tf.float32)
+      result = sparseMatrix * g + z_with_pad
+      return result
 
     def splitOffG(myMatrix):
       g = tf.gather(tf.transpose(myMatrix), tf.shape(myMatrix)[1]-1)
@@ -205,7 +211,7 @@ class PTBModel(object):
       #          0.        ,  0.        ,  0.5       ,  0.30000001,  0.        ]], dtype=float32)]
       #########
       # shift 1's-->0's, 0's--> -1's. 
-      newIndicies = (mask - 1) + indices
+      newIndicies = (mask - 1.0) + tf.to_float(indices)
       # LxV
       sizeL = tf.one_hot(newIndicies, vocab_size,dtype=tf.float32)
       # execute multiplication to insert the values.
@@ -234,13 +240,16 @@ class PTBModel(object):
     z_shape_of_input = tf.reshape(z_i, [batch_size, num_steps])
     z_dense = tf.map_fn(lambda x: getLowerDiag(x), z_shape_of_input)
     z_dense = tf.transpose(z_dense, perm=[1, 0, 2]) 
+    z_dense = tf.reshape(z_dense, [num_steps*batch_size, num_steps])
+    # append the g before softmax.
+    z = concatenateColumnOntoMatrix(z_dense, g, num_steps, batch_size)
 
-    z = concatenateColumnOntoMatrix(z_dense, g)
     # Grab masks for z_dense
     masks = tf.ones([batch_size, num_steps])
     masks = tf.map_fn(lambda x: getLowerDiag(x), masks)
     masks = tf.transpose(masks, perm=[1, 0, 2]) 
-    masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g))
+    masks = tf.reshape(masks, [num_steps*batch_size, num_steps])
+    masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g, dtype=tf.float32), num_steps, batch_size)
 
     # Do the softmax on z. Awesome trick.
     z_softmaxed = tf.nn.softmax(tf.log(masks) + z)
