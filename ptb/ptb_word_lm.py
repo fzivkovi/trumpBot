@@ -75,6 +75,12 @@ Test Perplexity: 115.282
 The exact results may vary depending on the random initialization.
 
 
+Results using small, num_steps = 100, batchsize=4.
+Epoch: 6 Train Perplexity: 54.825
+Epoch: 6 Valid Perplexity: 120.714
+Test Perplexity: 114.427
+
+
 #################################
 #### Hyperparameters, unchanged #
 #################################

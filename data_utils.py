@@ -94,20 +94,6 @@ def spacy_tokenizer(paragraph):
 
     return finalWords
 
-    # Broken!!.
-    # wordsBefore = words
-
-    # # Make sure that none are larger than our largest bucket.
-    # while len(words) >= config.max_sentence_word_count:
-    #     del intermediate_words[-1]
-    #     words = [w for s in intermediate_words for w in s]
-
-    # wordsAfer = words
-    # if wordsBefore != wordsAfer:
-    #   print("WordsBefore: ", wordsBefore)
-    #   print("wordsAfer: ", wordsAfer)
-
-    # return words
 
 def trim(myList):
   if len(myList) > config.max_sentence_word_count-1:
