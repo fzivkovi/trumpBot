@@ -109,7 +109,10 @@ flags.DEFINE_string("save_path", None,
                     "Model output directory.")
 flags.DEFINE_bool("use_fp16", False,
                   "Train using 16-bit floats instead of 32bit floats")
-
+flags.DEFINE_bool("use_wiki_text", False,
+                  "Expect wiki-text data in train path, not PTB.")
+flags.DEFINE_bool("test", False,
+                  "Evaluate just test perplexity alone on best model in save path.")
 FLAGS = flags.FLAGS
 
 
@@ -196,17 +199,23 @@ class PTBModel(object):
 
 
     #################################
-    #### Analysis of initial code ###
+    #### Common QA for code #########
     #################################
 
-    #### QUESTION: why is every hidden state in this calculation.
+    #### QUESTION: How many predictions is this code making?
     #### ANSWER: target is simply input shifted by one. Thus we are actually making BATCH_SIZE*STEPS predictions each batch.
     # print('outputs ', outputs) # list STEPS , tensor BATCHSIZE x HIDDEN_STATE_SIZE 
     # print('output ', output) # STEPS*BATCHSIZE x HIDDEN_STATE_SIZE
     # print('logits ', logits) ## STEPS*BATCHSIZE x VOCABSIZE
     # Even TARGET is of size STEPS*BATCHSIZE.
-    #### NEXT QUESTION: does that mean that the first prediction only has access to one hidden word? Whereas the later ones have access to many?
-    #### Answer: yes. But that means it transfers to my chatbot easier anyways. So I like it like this.
+    #### NEXT QUESTION: does the previous answer imply that the first prediction only has access to 
+    #                   one hidden word? Whereas the later ones have access to many?
+    #### Answer: yes. But that means it transfers to my chatbot easier. 
+    #            We test this scenario. So I like it like this.
+    ## Questions: how come we're using "outputs" in our calculation, weren't we supposed to use hidden state?
+    ## Answer: They are the same. The "state" variable returns hidden state as well as cell state, which we 
+    ##      don't care for. In the paper, Steven Merity uses the term output and hidden state interchangably.
+
 
     #################################
     #### BEGIN POINTER SENTINEL #####
@@ -251,18 +260,18 @@ class PTBModel(object):
       #          0.        ,  0.        ,  0.5       ,  0.30000001,  0.        ]], dtype=float32)]
       #########
       # shift 1's-->0's, 0's--> -1's. 
-
+      # This adds 0 to the indicies that matter, and adds -1 to the empty ones.
       newIndicies = (tf.to_int32(mask) - 1) + indices
 
       # LxV
-      sizeL = tf.one_hot(newIndicies, vocab_size,dtype=tf.float32)
+      sizeL = tf.one_hot(newIndicies, vocab_size,dtype=data_type())
       # execute multiplication to insert the values.
       originalShape = tf.shape(sizeL)
       sizeL = tf.reshape(sizeL, [-1, vocab_size])
       values = tf.reshape(values, [-1])
       r = tf.transpose(tf.multiply(tf.transpose(sizeL),values))
       r = tf.reshape(r,originalShape)
-      # reduce extra L dimensions.
+      # reduce extra L dimensions. 
       r = tf.reduce_sum(r, 1)
       return r
 
@@ -270,14 +279,14 @@ class PTBModel(object):
     ## Calculate q, g. Trainable parameters: W_for_q, b_for_q, s
     #########################################################
 
-    # Pointer Sentinel: calculate q's. q = tanh(W*h + b)
+    # Pointer Sentinel: calculate q's. q = tanh(W*(last_output) + b)
     W_for_q = tf.get_variable("W_for_q", [size, size], dtype=data_type())
     b_for_q = tf.get_variable("b_for_q", [size], dtype=data_type())
     q = tf.tanh(tf.matmul(output, W_for_q) + b_for_q, name='q')
 
     sentinel = tf.get_variable("s", [size,1], dtype=data_type())
     # sentinel undergoes reduction STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE to result in g's. 
-    g = tf.matmul(output,sentinel) # STEPS*BATCHSIZE
+    g = tf.matmul(q,sentinel) # STEPS*BATCHSIZE
 
     #########################################################
     ## Calculate pointer outputs, z. [zi = inner(q, hi)] concat with [q*s]. 
@@ -298,7 +307,7 @@ class PTBModel(object):
     masks = tf.map_fn(lambda x: getLowerDiag(x), masks)
     masks = tf.transpose(masks, perm=[1, 0, 2]) 
     masks = tf.reshape(masks, [num_steps*batch_size, num_steps])
-    masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g, dtype=tf.float32), num_steps, batch_size)
+    masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g, dtype=data_type()), num_steps, batch_size)
 
     #########################################################
     ## Calculate masked softmax for p_ptr, transform to sparse matrix 
@@ -326,14 +335,12 @@ class PTBModel(object):
     vocab_contrib = tf.transpose(tf.multiply(tf.transpose(p_vocab), g))
 
     p_final = pointer_contrib + vocab_contrib
-
-    print('input data, ',input_.input_data)
-    print('targets, ',input_.targets)
-
+    # print('input data, ',input_.input_data)
+    # print('targets, ',input_.targets)
     targets = tf.reshape(input_.targets, [-1])
 
     # Calculate loss by creating a one-hot mask (target), multiply, then reduce_sum along that axis.
-    target_mask = tf.one_hot(targets, vocab_size,dtype=tf.float32)
+    target_mask = tf.one_hot(targets, vocab_size,dtype=data_type())
     after_mask = tf.reduce_sum(target_mask * p_final, 1)
     loss = -tf.log(after_mask)
     self._cost = cost = tf.reduce_sum(loss) / batch_size
@@ -356,7 +363,7 @@ class PTBModel(object):
         global_step=tf.contrib.framework.get_or_create_global_step())
 
     self._new_lr = tf.placeholder(
-        tf.float32, shape=[], name="new_learning_rate")
+        data_type(), shape=[], name="new_learning_rate")
     self._lr_update = tf.assign(self._lr, self._new_lr)
 
   def assign_lr(self, session, lr_value):
@@ -396,7 +403,7 @@ class SmallConfig(object):
   num_steps = 20
   hidden_size = 200
   max_epoch = 4
-  max_max_epoch = 13
+  max_max_epoch = 16
   keep_prob = 1.0
   lr_decay = 0.5
   batch_size = 20
@@ -431,22 +438,6 @@ class LargeConfig(object):
   max_max_epoch = 55
   keep_prob = 0.35
   lr_decay = 1 / 1.15
-  batch_size = 20
-  vocab_size = 10000
-
-
-class TestConfig(object):
-  """Tiny config, for testing."""
-  init_scale = 0.1
-  learning_rate = 1.0
-  max_grad_norm = 1
-  num_layers = 1
-  num_steps = 2
-  hidden_size = 2
-  max_epoch = 1
-  max_max_epoch = 1
-  keep_prob = 1.0
-  lr_decay = 0.5
   batch_size = 20
   vocab_size = 10000
 
@@ -493,8 +484,6 @@ def get_config():
     return MediumConfig()
   elif FLAGS.model == "large":
     return LargeConfig()
-  elif FLAGS.model == "test":
-    return TestConfig()
   else:
     raise ValueError("Invalid model: %s", FLAGS.model)
 
@@ -508,8 +497,8 @@ def main(_):
 
   config = get_config()
   eval_config = get_config()
-  eval_config.batch_size = 1
-  eval_config.num_steps = 1
+  # eval_config.batch_size = 1
+  # eval_config.num_steps = 1
 
   with tf.Graph().as_default():
     initializer = tf.random_uniform_initializer(-config.init_scale,
@@ -534,6 +523,18 @@ def main(_):
         mtest = PTBModel(is_training=False, config=eval_config,
                          input_=test_input)
 
+    if FLAGS.test:
+      # Load model, run epoch on test data, print test perplexity, quit
+      saver = tf.train.Saver()
+      with tf.Session() as sess:
+        # Restore variables from disk.
+        print("Loading best model.")
+        saver.restore(sess, os.path.join(FLAGS.save_path, "checkpoint"))
+        test_perplexity = run_epoch(sess, mtest)
+        print("Test Perplexity: %.3f" % test_perplexity)
+      sys.exit()
+
+    bestRunningValidationPerplexity = 1000
     sv = tf.train.Supervisor(logdir=FLAGS.save_path)
     with sv.managed_session() as session:
       for i in range(config.max_max_epoch):
@@ -543,16 +544,17 @@ def main(_):
         print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
         train_perplexity = run_epoch(session, m, eval_op=m.train_op,
                                      verbose=True)
+
         print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
         valid_perplexity = run_epoch(session, mvalid)
         print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
 
-      test_perplexity = run_epoch(session, mtest)
-      print("Test Perplexity: %.3f" % test_perplexity)
+        # Save only if better than any before.
+        if FLAGS.save_path and bestRunningValidationPerplexity >= valid_perplexity:
+          print("Saving model to %s." % FLAGS.save_path)
+          global_step = "epoch_%s_valid_perp_%s" % (i,valid_perplexity)
+          sv.saver.save(session, FLAGS.save_path, global_step=global_step)#, max_to_keep=None)
 
-      if FLAGS.save_path:
-        print("Saving model to %s." % FLAGS.save_path)
-        sv.saver.save(session, FLAGS.save_path, global_step=sv.global_step, keep_checkpoint_every_n_hours=2)
 
 
 if __name__ == "__main__":

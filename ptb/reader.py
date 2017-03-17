@@ -120,11 +120,6 @@ def ptb_producer(raw_data, batch_size, num_steps, name=None):
                          [batch_size, (i + 1) * num_steps + 1])
     y.set_shape([batch_size, num_steps])
 
-
-
-
-    
-
     return x, y
 
 
