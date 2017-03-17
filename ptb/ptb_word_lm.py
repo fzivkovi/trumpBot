@@ -555,8 +555,8 @@ def main(_):
       with sv.managed_session() as session:
         # Restore variables from disk.
         print("Loading best model.")
-        sv.saver.restore(sess, os.path.join(FLAGS.save_path, "checkpoint"))
-        test_perplexity = run_epoch(sess, mtest)
+        sv.saver.restore(session, os.path.join(FLAGS.save_path, "checkpoint"))
+        test_perplexity = run_epoch(session, mtest)
         print("Test Perplexity: %.3f" % test_perplexity)
       sys.exit()
 
