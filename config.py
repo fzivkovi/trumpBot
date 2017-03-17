@@ -47,7 +47,7 @@ if not debug:
     if useMovieData:
         trainMovieQ = 'data/allMovieData.enc'
         trainMovieA = 'data/allMovieData.dec'
-        reduced_weight = 0.5
+        reduced_weight = 0.04
     else:
         trainMovieQ = None
         trainMovieA = None

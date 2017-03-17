@@ -92,7 +92,7 @@ def read_val_data():
           continue
         for bucket_id, (source_size, target_size) in enumerate(config._buckets):
           if len(source_ids) < source_size and len(target_ids) < target_size:
-            data_set[bucket_id].append([source_ids, target_ids, config.reduced_weight])
+            data_set[bucket_id].append([source_ids, target_ids, 1.0])
             break
         source, target = source_file.readline(), target_file.readline()
   return data_set  # validation set
