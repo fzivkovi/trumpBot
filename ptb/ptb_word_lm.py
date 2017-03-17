@@ -209,7 +209,7 @@ class PTBModel(object):
 
     #########################################################
     ## Can't use sparse_softmax_cross_entropy_with_logits, 
-    ## because cross-entropy needs to be calcualted after summation.
+    ## because cross-entropy needs to be calculated after summation.
     #########################################################
     p_vocab = tf.nn.softmax(logits)
 
@@ -230,7 +230,7 @@ class PTBModel(object):
     #            We test this scenario. So I like it like this.
     ## Questions: how come we're using "outputs" in our calculation, weren't we supposed to use hidden state?
     ## Answer: They are the same. The "state" variable returns hidden state as well as cell state, which we 
-    ##      don't care for. In the paper, Steven Merity uses the term output and hidden state interchangably.
+    ##      don't care for. In the paper, Merity uses the term output and hidden state interchangably.
 
 
     #################################
@@ -298,11 +298,14 @@ class PTBModel(object):
     # Pointer Sentinel: calculate q's. q = tanh(W*(last_output) + b)
     W_for_q = tf.get_variable("W_for_q", [size, size], dtype=data_type())
     b_for_q = tf.get_variable("b_for_q", [size], dtype=data_type())
+    # q calculation is intentionally this way, multiply by every single output,
+    # because num_steps * batch_size predictions, so that is how 
+    # many q's we require.
     q = tf.tanh(tf.matmul(output, W_for_q) + b_for_q, name='q')
 
-    sentinel = tf.get_variable("s", [size,1], dtype=data_type())
-    # sentinel undergoes reduction STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE to result in g's. 
-    g = tf.matmul(q,sentinel) # STEPS*BATCHSIZE
+    s = tf.get_variable("s", [size,1], dtype=data_type())
+    # s undergoes reduction STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE to result in g's. 
+    g = tf.matmul(q,s) # STEPS*BATCHSIZE
 
     #########################################################
     ## Calculate pointer outputs, z. [zi = inner(q, hi)] concat with [q*s]. 
@@ -325,6 +328,11 @@ class PTBModel(object):
     masks = tf.reshape(masks, [num_steps*batch_size, num_steps])
     masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g, dtype=data_type()), num_steps, batch_size)
 
+    # Indexes to place numbers when casting to vocab size.
+    inputMapping = tf.map_fn(lambda x: getLowerDiag(x), input_.input_data)
+    inputMapping = tf.transpose(inputMapping, perm=[1, 0, 2]) 
+    inputMapping = tf.reshape(inputMapping, [num_steps*batch_size, num_steps])
+
     #########################################################
     ## Calculate masked softmax for p_ptr, transform to sparse matrix 
     #########################################################
@@ -335,31 +343,37 @@ class PTBModel(object):
     p_ptr_dense, g = splitOffG(z_softmaxed)
     masks, __ = splitOffG(masks)
 
-    # Indexes to place numbers when casting to vocab size.
-    inputMapping = tf.map_fn(lambda x: getLowerDiag(x), input_.input_data)
-    inputMapping = tf.transpose(inputMapping, perm=[1, 0, 2]) 
-    inputMapping = tf.reshape(inputMapping, [num_steps*batch_size, num_steps])
-
     # Return p_ptr of size [step_size*batch_size x vocab_size]
     p_ptr = returnSparse(p_ptr_dense, masks, inputMapping, vocab_size)
 
     #########################################################
-    ## p = g * p_vocab + (1 - g) * p_train, then apply X-entropy
+    ## p_final = g * p_vocab + (1 - g) * p_ptr, then apply X-entropy
     #########################################################
 
+    # shouldn't need to transpose twice, revisit if time.
     pointer_contrib = tf.transpose(tf.multiply(tf.transpose(p_ptr), (1-g)))
     vocab_contrib = tf.transpose(tf.multiply(tf.transpose(p_vocab), g))
-
     p_final = pointer_contrib + vocab_contrib
+
     # print('input data, ',input_.input_data)
     # print('targets, ',input_.targets)
     targets = tf.reshape(input_.targets, [-1])
 
+    # This is the cross-entropy calculation, where y = 1 for targets.
     # Calculate loss by creating a one-hot mask (target), multiply, then reduce_sum along that axis.
     target_mask = tf.one_hot(targets, vocab_size,dtype=data_type())
     after_mask = tf.reduce_sum(target_mask * p_final, 1)
     loss = -tf.log(after_mask)
     self._cost = cost = tf.reduce_sum(loss) / batch_size
+
+    # Revisit this different implementation that doesn't work.
+    # yHat = p_final
+    # targets_sparse = tf.one_hot(targets, vocab_size,dtype=data_type())
+    # yHat = tf.reduce_sum(yHat, 1)
+    # y = tf.reduce_sum(targets_sparse, 1)
+    # loss = y*tf.log(yHat)
+    # self._cost = cost = -tf.reduce_sum(loss) / batch_size
+
     self._final_state = state
 
     #################################
