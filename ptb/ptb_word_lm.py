@@ -100,6 +100,8 @@ import tensorflow as tf
 import reader
 import sys
 
+import os
+
 flags = tf.flags
 logging = tf.logging
 
@@ -578,8 +580,8 @@ def main(_):
         # Save only if better than any before.
         if FLAGS.save_path and bestRunningValidationPerplexity >= valid_perplexity:
           print("Saving model to %s." % FLAGS.save_path)
-          global_step = "epoch_%s_valid_perp_%s" % (i,valid_perplexity)
-          sv.saver.save(session, FLAGS.save_path, global_step=global_step)#, max_to_keep=None)
+          #global_step = "epoch_%s_valid_perp_%s" % (i,valid_perplexity)
+          sv.saver.save(session, FLAGS.save_path, global_step=i)#, max_to_keep=None)
 
 
 
