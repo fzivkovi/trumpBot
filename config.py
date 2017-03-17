@@ -25,7 +25,7 @@ useMovieData = False
 # useful: tensorboard --inspect --logdir=/tmp/tensorflow/trump3_vinyals
 logs_path = '/tmp/tensorflow/trump3_%s' % attention_type
 # At each checkpoint, models params are saved, model is evaluated, and results printed
-steps_per_checkpoint = 300
+steps_per_checkpoint = 1000 
 
 glove_dir = 'data/dwr'
 glove_possible_dimensions = [50,100,200,300]
@@ -41,22 +41,22 @@ if not debug:
         longer than O will be pushed to the next bucket and padded accordingly.
         We assume that the list is sorted, e.g., [(2, 4), (8, 16)].
     """
-    _buckets = [(8, 9), (15, 16), (28, 29), (45, 46), (59,61),(100,100)]
+    _buckets = [(8, 9), (15, 16), (28, 29), (45, 46), (59,61)]
     # These are maximums
     max_vocabulary_size = 20000
     if useMovieData:
         trainMovieQ = 'data/allMovieData.enc'
         trainMovieA = 'data/allMovieData.dec'
-        reduced_weight = 0.5
+        reduced_weight = 0.04
     else:
         trainMovieQ = None
         trainMovieA = None
         reduced_weight = 1.0
-    layer_size = 1024
+    layer_size = 512 
     # Samples for sampled softmax.
-    num_samples = 512
-    batch_size = 64
-    glove_dim = glove_possible_dimensions[3]
+    num_samples = 256
+    batch_size = 32
+    glove_dim = glove_possible_dimensions[2]
     num_layers = 3          # Number of RNN layers.
     # folder where checkpoints, vocabulary, temporary data will be stored
     working_directory = 'working_dir_%s_%s' % (glove_dim, attention_type)
