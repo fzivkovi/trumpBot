@@ -61,10 +61,15 @@ The exact results may vary depending on the random initialization.
 #### Pointer Sentinel Results  ##
 #################################
 
+
+Epoch: 16 Train Perplexity: 40.052
+Epoch: 16 Valid Perplexity: 118.827
+Test Perplexity: 115.282
+
 ===========================================
 | config | epochs | train | valid  | test
 ===========================================
-| small  | ?      | ????? | ?????? | ??????
+| small  | 16     | 40.05 | 118.82 | 115.28 --> should have run more epochs.
 | medium | ?      | ????? | ?????  |  ?????
 | large  | ?      | ????? | ?????? |  ?????
 The exact results may vary depending on the random initialization.
@@ -587,6 +592,6 @@ def main(_):
         if FLAGS.test:
           test_perplexity = run_epoch(session, mtest)
           print("Test Perplexity: %.3f" % test_perplexity)
-          
+
 if __name__ == "__main__":
   tf.app.run()
