@@ -14,6 +14,9 @@ The data required for this example is in the data/ dir of the
 PTB dataset from Tomas Mikolov's webpage:
 $ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 $ tar xvf simple-examples.tgz
+WikiText dataset:
+$ wget https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip
+
 
 To run:
 
@@ -394,6 +397,24 @@ class PTBModel(object):
     return self._train_op
 
 
+
+# Just use for testing purposes.
+class TinyConfig(object):
+  """Tiny config, for testing."""
+  init_scale = 0.1
+  learning_rate = 1.0
+  max_grad_norm = 1
+  num_layers = 1
+  num_steps = 2
+  hidden_size = 2
+  max_epoch = 1
+  max_max_epoch = 1
+  keep_prob = 1.0
+  lr_decay = 0.5
+  batch_size = 20
+  vocab_size = 10000
+
+
 class SmallConfig(object):
   """Small config."""
   init_scale = 0.1
@@ -484,6 +505,8 @@ def get_config():
     return MediumConfig()
   elif FLAGS.model == "large":
     return LargeConfig()
+  elif FLAGS.model == "tiny":
+    return TinyConfig()
   else:
     raise ValueError("Invalid model: %s", FLAGS.model)
 
@@ -526,14 +549,17 @@ def main(_):
     if FLAGS.test:
       # Load model, run epoch on test data, print test perplexity, quit
       saver = tf.train.Saver()
-      with tf.Session() as sess:
+      sv = tf.train.Supervisor(logdir=FLAGS.save_path)
+      with sv.managed_session() as session:
         # Restore variables from disk.
         print("Loading best model.")
-        saver.restore(sess, os.path.join(FLAGS.save_path, "checkpoint"))
+        sv.saver.restore(sess, os.path.join(FLAGS.save_path, "checkpoint"))
         test_perplexity = run_epoch(sess, mtest)
         print("Test Perplexity: %.3f" % test_perplexity)
       sys.exit()
 
+    # small TODO: make so that you can resume training a session as well.
+    # Now begins a new session and saves it along the way.
     bestRunningValidationPerplexity = 1000
     sv = tf.train.Supervisor(logdir=FLAGS.save_path)
     with sv.managed_session() as session:
