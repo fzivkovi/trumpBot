@@ -548,17 +548,18 @@ def main(_):
         mtest = PTBModel(is_training=False, config=eval_config,
                          input_=test_input)
 
-    if FLAGS.test:
-      # Load model, run epoch on test data, print test perplexity, quit
-      saver = tf.train.Saver()
-      sv = tf.train.Supervisor(logdir=FLAGS.save_path)
-      with sv.managed_session() as session:
-        # Restore variables from disk.
-        print("Loading best model.")
-        sv.saver.restore(session, os.path.join(FLAGS.save_path, "checkpoint"))
-        test_perplexity = run_epoch(session, mtest)
-        print("Test Perplexity: %.3f" % test_perplexity)
-      sys.exit()
+    # TODO: This doesn't work. sad.
+    # if FLAGS.test:
+    #   # Load model, run epoch on test data, print test perplexity, quit
+    #   saver = tf.train.Saver()
+    #   sv = tf.train.Supervisor(logdir=FLAGS.save_path)
+    #   with sv.managed_session() as session:
+    #     # Restore variables from disk.
+    #     print("Loading best model.")
+    #     sv.saver.restore(session, FLAGS.save_path)
+    #     test_perplexity = run_epoch(session, mtest)
+    #     print("Test Perplexity: %.3f" % test_perplexity)
+    #   sys.exit()
 
     # small TODO: make so that you can resume training a session as well.
     # Now begins a new session and saves it along the way.
@@ -583,7 +584,9 @@ def main(_):
           #global_step = "epoch_%s_valid_perp_%s" % (i,valid_perplexity)
           sv.saver.save(session, FLAGS.save_path, global_step=i)#, max_to_keep=None)
 
-
-
+        if FLAGS.test:
+          test_perplexity = run_epoch(session, mtest)
+          print("Test Perplexity: %.3f" % test_perplexity)
+          
 if __name__ == "__main__":
   tf.app.run()
