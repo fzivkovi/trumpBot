@@ -17,7 +17,6 @@ $ tar xvf simple-examples.tgz
 WikiText dataset:
 $ wget https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip
 
-
 To run:
 
 $ python ptb_word_lm.py --data_path=simple-examples/data/
@@ -70,7 +69,7 @@ Test Perplexity: 115.282
 | config | epochs | train | valid  | test
 ===========================================
 | small  | 16     | 40.05 | 118.82 | 115.28 --> should have run more epochs.
-| medium | ?      | ????? | ?????  |  ?????
+| medium | ?      | ????? | ?????  |  ????? --> RUN THIS!
 | large  | ?      | ????? | ?????? |  ?????
 The exact results may vary depending on the random initialization.
 
@@ -108,7 +107,8 @@ import time
 import numpy as np
 import tensorflow as tf
 
-import reader
+# import reader
+import reader_ptr_sent as reader
 import sys
 
 import os
@@ -180,7 +180,7 @@ class PTBModel(object):
       inputs = tf.nn.embedding_lookup(embedding, input_.input_data)
 
     if is_training and config.keep_prob < 1:
-      inputs = tf.nn.dropout(inputs, config.keep_prob) ### QUESTION: WHY DROPOUT ON INPUT DATA?
+      inputs = tf.nn.dropout(inputs, config.keep_prob) 
 
     # Simplified version of models/tutorials/rnn/rnn.py's rnn().
     # This builds an unrolled LSTM for tutorial purposes only.
@@ -199,6 +199,8 @@ class PTBModel(object):
         (cell_output, state) = cell(inputs[:, time_step, :], state)
         outputs.append(cell_output)
 
+    outputs = outputs[-num_steps:]
+
     output = tf.reshape(tf.concat(outputs, 1), [-1, size])
     # output --> [step0Batch0Hidden, step0Batch1Hidden, ... step1Batch0Hidden, ...stepNbatchNHidden]
     softmax_w = tf.get_variable(
@@ -206,13 +208,11 @@ class PTBModel(object):
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
     logits = tf.matmul(output, softmax_w) + softmax_b
 
-
     #########################################################
     ## Can't use sparse_softmax_cross_entropy_with_logits, 
     ## because cross-entropy needs to be calculated after summation.
     #########################################################
     p_vocab = tf.nn.softmax(logits)
-
 
     #################################
     #### Common QA for code #########
@@ -328,8 +328,13 @@ class PTBModel(object):
     masks = tf.reshape(masks, [num_steps*batch_size, num_steps])
     masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g, dtype=data_type()), num_steps, batch_size)
 
+
+    # Must only grab the inputs we are making predictions on.
+    inp = input_.input_data
+    input_prediction_range = tf.transpose(tf.gather(tf.transpose(inp), tf.range(10,num_steps+10)))
+
     # Indexes to place numbers when casting to vocab size.
-    inputMapping = tf.map_fn(lambda x: getLowerDiag(x), input_.input_data)
+    inputMapping = tf.map_fn(lambda x: getLowerDiag(x), input_prediction_range)
     inputMapping = tf.transpose(inputMapping, perm=[1, 0, 2]) 
     inputMapping = tf.reshape(inputMapping, [num_steps*batch_size, num_steps])
 
@@ -435,7 +440,7 @@ class TinyConfig(object):
   num_steps = 2
   hidden_size = 2
   max_epoch = 1
-  max_max_epoch = 1
+  max_max_epoch = 2
   keep_prob = 1.0
   lr_decay = 0.5
   batch_size = 20
