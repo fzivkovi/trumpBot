@@ -430,7 +430,8 @@ class PTBModel(object):
     tvars = tf.trainable_variables()
     grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),
                                       config.max_grad_norm)
-    optimizer = tf.train.GradientDescentOptimizer(self._lr)
+    # optimizer = tf.train.GradientDescentOptimizer(self._lr)
+    optimizer = tf.train.AdamOptimizer(self.lr)
     self._train_op = optimizer.apply_gradients(
         zip(grads, tvars),
         global_step=tf.contrib.framework.get_or_create_global_step())
@@ -472,7 +473,7 @@ class PTBModel(object):
 class TinyConfig(object):
   """Tiny config, for testing."""
   init_scale = 0.1
-  learning_rate = 1.0
+  learning_rate = 0.001
   max_grad_norm = 1
   num_layers = 1
   num_steps = 2
@@ -489,7 +490,7 @@ class TinyConfig(object):
 class SmallConfig(object):
   """Small config."""
   init_scale = 0.1
-  learning_rate = 1.0
+  learning_rate = 0.001
   max_grad_norm = 5
   num_layers = 2
   num_steps = 20
@@ -498,7 +499,7 @@ class SmallConfig(object):
   max_epoch = 4
   max_max_epoch = 16
   keep_prob = 1.0
-  lr_decay = 0.5
+  lr_decay = 0.9
   batch_size = 20
   vocab_size = 10000
 
@@ -506,17 +507,17 @@ class SmallConfig(object):
 class MediumConfig(object):
   """Medium config."""
   init_scale = 0.05
-  learning_rate = 1.0
+  learning_rate = 0.001
   max_grad_norm = 5
   num_layers = 2
-  num_steps = 35
+  num_steps = 30
   L = 100
   hidden_size = 500
   max_epoch = 6
   max_max_epoch = 80
   keep_prob = 0.5
   keep_prob_words = 0.75
-  lr_decay = 0.8
+  lr_decay = 0.9
   batch_size = 10
   vocab_size = 10000
 
