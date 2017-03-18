@@ -131,6 +131,8 @@ flags.DEFINE_bool("test", False,
                   "Evaluate just test perplexity alone on best model in save path.")
 FLAGS = flags.FLAGS
 
+from tensorflow.python.ops import rnn
+
 
 def data_type():
   return tf.float16 if FLAGS.use_fp16 else tf.float32
@@ -144,7 +146,7 @@ class PTBInput(object):
     self.num_steps = num_steps = config.num_steps
     self.epoch_size = ((len(data) // batch_size) - 1) // num_steps
     self.input_data, self.targets = reader.ptb_producer(
-        data, batch_size, num_steps, name=name)
+        data, batch_size, num_steps, config.L, name=name)
 
 
 class PTBModel(object):
@@ -187,26 +189,28 @@ class PTBModel(object):
     # In general, use the rnn() or state_saving_rnn() from rnn.py.
     #
     # The alternative version of the code below is:
-    #
-    # inputs = tf.unstack(inputs, num=num_steps, axis=1)
-    # outputs, state = tf.nn.rnn(cell, inputs,
+    # Couldn't get this to work
+    # inputs = tf.unstack(inputs, num=num_steps+config.L, axis=1)  
+    # outputs_all, state = tf.contrib.rnn(cell, inputs,
     #                            initial_state=self._initial_state)
-    outputs = []
+    outputs_all = []
     state = self._initial_state
     with tf.variable_scope("RNN"):
-      for time_step in range(num_steps):
+      for time_step in range(num_steps + config.L):
         if time_step > 0: tf.get_variable_scope().reuse_variables()
         (cell_output, state) = cell(inputs[:, time_step, :], state)
-        outputs.append(cell_output)
+        outputs_all.append(cell_output)
 
-    outputs = outputs[-num_steps:]
+    outputs_prediction = outputs_all[-num_steps:]
+    outputs_L = outputs_all[:config.L]
 
-    output = tf.reshape(tf.concat(outputs, 1), [-1, size])
-    # output --> [step0Batch0Hidden, step0Batch1Hidden, ... step1Batch0Hidden, ...stepNbatchNHidden]
+    outputs_all = tf.reshape(tf.concat(outputs_all, 1), [-1, size])
+    outputs_prediction = tf.reshape(tf.concat(outputs_prediction, 1), [-1, size])
+    # outputs_all --> [step0Batch0Hidden, step0Batch1Hidden, ... step1Batch0Hidden, ...stepNbatchNHidden]
     softmax_w = tf.get_variable(
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
-    logits = tf.matmul(output, softmax_w) + softmax_b
+    logits = tf.matmul(outputs_prediction, softmax_w) + softmax_b
 
     #########################################################
     ## Can't use sparse_softmax_cross_entropy_with_logits, 
@@ -280,12 +284,12 @@ class PTBModel(object):
       newIndicies = (tf.to_int32(mask) - 1) + indices
 
       # LxV
-      sizeL = tf.one_hot(newIndicies, vocab_size,dtype=data_type())
+      size_num_steps = tf.one_hot(newIndicies, vocab_size,dtype=data_type())
       # execute multiplication to insert the values.
-      originalShape = tf.shape(sizeL)
-      sizeL = tf.reshape(sizeL, [-1, vocab_size])
+      originalShape = tf.shape(size_num_steps)
+      size_num_steps = tf.reshape(size_num_steps, [-1, vocab_size])
       values = tf.reshape(values, [-1])
-      r = tf.transpose(tf.multiply(tf.transpose(sizeL),values))
+      r = tf.transpose(tf.multiply(tf.transpose(size_num_steps),values))
       r = tf.reshape(r,originalShape)
       # reduce extra L dimensions. 
       r = tf.reduce_sum(r, 1)
@@ -301,19 +305,33 @@ class PTBModel(object):
     # q calculation is intentionally this way, multiply by every single output,
     # because num_steps * batch_size predictions, so that is how 
     # many q's we require.
-    q = tf.tanh(tf.matmul(output, W_for_q) + b_for_q, name='q')
+    q = tf.tanh(tf.matmul(outputs_prediction, W_for_q) + b_for_q, name='q')
 
     s = tf.get_variable("s", [size,1], dtype=data_type())
     # s undergoes reduction STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE to result in g's. 
     g = tf.matmul(q,s) # STEPS*BATCHSIZE
 
+
     #########################################################
+    ## This section is for the L portion.
+    ## Calculate pointer outputs, z. [zi = inner(q, hi)] concat with [q*s]. 
+    #########################################################
+    outputs_L = tf.reshape(tf.concat(outputs_L, 1), [config.L, batch_size, size])
+    outputs_L = tf.transpose(outputs_L, perm=[1,0,2])
+    q_for_L = tf.reshape(q, [num_steps, batch_size, size])
+    q_for_L = tf.transpose(q_for_L, perm=[1,2,0])
+    # print(q_for_L) # batchsizex200xnum_steps
+    # print(outputs_L) # batchSizexLx200
+    z_for_L = tf.matmul(outputs_L, q_for_L) # batchsize x L x num_steps
+
+    #########################################################
+    ## This section is for the prediction portion.
     ## Calculate pointer outputs, z. [zi = inner(q, hi)] concat with [q*s]. 
     #########################################################
 
-    z_i = tf.reduce_sum(tf.multiply(output, q), 1, keep_dims=True)
+    z_i = tf.reduce_sum(tf.multiply(outputs_prediction, q), 1, keep_dims=True)
 
-    # Cast to new size --> STEPS*BATCHSIZE x L
+    # Cast to new size --> STEPS*BATCHSIZE x num_seps
     z_shape_of_input = tf.reshape(z_i, [batch_size, num_steps])
     z_dense = tf.map_fn(lambda x: getLowerDiag(x), z_shape_of_input)
     z_dense = tf.transpose(z_dense, perm=[1, 0, 2]) 
@@ -328,15 +346,35 @@ class PTBModel(object):
     masks = tf.reshape(masks, [num_steps*batch_size, num_steps])
     masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g, dtype=data_type()), num_steps, batch_size)
 
-
     # Must only grab the inputs we are making predictions on.
     inp = input_.input_data
-    input_prediction_range = tf.transpose(tf.gather(tf.transpose(inp), tf.range(10,num_steps+10)))
+    input_num_steps_range = tf.transpose(tf.gather(tf.transpose(inp), tf.range(config.L,num_steps+config.L)))
 
     # Indexes to place numbers when casting to vocab size.
-    inputMapping = tf.map_fn(lambda x: getLowerDiag(x), input_prediction_range)
+    inputMapping = tf.map_fn(lambda x: getLowerDiag(x), input_num_steps_range)
     inputMapping = tf.transpose(inputMapping, perm=[1, 0, 2]) 
     inputMapping = tf.reshape(inputMapping, [num_steps*batch_size, num_steps])
+
+    #########################################################
+    ## Concatenate sentinels for L with those from num_steps
+    #########################################################
+
+    # print(z) # num_steps*batch_size x (num_steps + 1)
+    # print(masks)#  num_steps*batch_size x (num_steps + 1)
+    # print(inputMapping)#  num_steps*batch_size x num_steps 
+    # print(z_for_L) # batchsize x L x num_steps
+  
+    z_for_L = tf.transpose(z_for_L, perm=[2,0,1])
+    z_for_L = tf.reshape(z_for_L, [num_steps*batch_size, config.L])
+    z = tf.concat([z_for_L, z],1)
+
+    input_L_range = tf.transpose(tf.gather(tf.transpose(inp), tf.range(config.L)))
+    input_L_range = tf.tile(input_L_range, [num_steps, 1])
+    # print(input_L_range) # num_steps*batch_size x L
+    inputMapping = tf.concat([input_L_range, inputMapping],1)
+
+    masks_for_L = tf.ones_like(input_L_range, dtype=data_type())
+    masks = tf.concat([masks_for_L, masks],1)
 
     #########################################################
     ## Calculate masked softmax for p_ptr, transform to sparse matrix 
@@ -454,6 +492,7 @@ class SmallConfig(object):
   max_grad_norm = 5
   num_layers = 2
   num_steps = 20
+  L = 100
   hidden_size = 200
   max_epoch = 4
   max_max_epoch = 16
@@ -469,7 +508,8 @@ class MediumConfig(object):
   learning_rate = 1.0
   max_grad_norm = 5
   num_layers = 2
-  num_steps = 35
+  num_steps = 20
+  L = 100
   hidden_size = 650
   max_epoch = 6
   max_max_epoch = 39
@@ -493,6 +533,7 @@ class LargeConfig(object):
   lr_decay = 1 / 1.15
   batch_size = 20
   vocab_size = 10000
+  L = 100
 
 
 def run_epoch(session, model, eval_op=None, verbose=False):

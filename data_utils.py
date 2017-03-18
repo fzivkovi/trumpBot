@@ -94,7 +94,6 @@ def spacy_tokenizer(paragraph):
 
     return finalWords
 
-
 def trim(myList):
   if len(myList) > config.max_sentence_word_count-1:
     myList = myList[:config.max_sentence_word_count-1]
