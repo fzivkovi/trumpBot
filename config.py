@@ -20,12 +20,12 @@ mode = args.mode
 assert mode in ['train', 'test', 'serve']
 
 useTensorBoard = False
-useMovieData = False
+useMovieData = True
 # command is: tensorboard --logdir=run1:/tmp/tensorflow/trump1_luong --port 6006
 # useful: tensorboard --inspect --logdir=/tmp/tensorflow/trump3_vinyals
 logs_path = '/tmp/tensorflow/trump3_%s' % attention_type
 # At each checkpoint, models params are saved, model is evaluated, and results printed
-steps_per_checkpoint = 1000 
+steps_per_checkpoint = 4000 
 
 glove_dir = 'data/dwr'
 glove_possible_dimensions = [50,100,200,300]
@@ -45,9 +45,9 @@ if not debug:
     # These are maximums
     max_vocabulary_size = 20000
     if useMovieData:
-        trainMovieQ = 'data/allMovieData.enc'
-        trainMovieA = 'data/allMovieData.dec'
-        reduced_weight = 0.04
+        trainMovieQ = 'allMovieData.enc'
+        trainMovieA = 'allMovieData.dec'
+        reduced_weight = 0.03
     else:
         trainMovieQ = None
         trainMovieA = None

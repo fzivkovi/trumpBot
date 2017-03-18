@@ -244,8 +244,6 @@ class Seq2SeqModel(object):
         encoder_input, decoder_input = inputs
         data_weight = 1.0
       else:
-        print("GOOD IN HERE YAY. Just had to test this.. remove now.")
-        sys.exit()
         encoder_input, decoder_input, data_weight = inputs
 
       # Encoder inputs are padded and then reversed.

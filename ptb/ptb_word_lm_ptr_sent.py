@@ -509,15 +509,15 @@ class MediumConfig(object):
   learning_rate = 1.0
   max_grad_norm = 5
   num_layers = 2
-  num_steps = 15
+  num_steps = 35
   L = 100
-  hidden_size = 650
+  hidden_size = 500
   max_epoch = 6
   max_max_epoch = 80
   keep_prob = 0.5
   keep_prob_words = 0.75
   lr_decay = 0.8
-  batch_size = 32
+  batch_size = 10
   vocab_size = 10000
 
 
