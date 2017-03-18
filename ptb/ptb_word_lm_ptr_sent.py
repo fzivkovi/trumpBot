@@ -121,7 +121,7 @@ flags.DEFINE_string(
     "A type of model. Possible options are: small, medium, large.")
 flags.DEFINE_string("data_path", None,
                     "Where the training/test data is stored.")
-flags.DEFINE_string("save_path", None,
+flags.DEFINE_string("save_path", 'saveGeneric',
                     "Model output directory.")
 flags.DEFINE_bool("use_fp16", False,
                   "Train using 16-bit floats instead of 32bit floats")
@@ -483,7 +483,8 @@ class TinyConfig(object):
   lr_decay = 0.5
   batch_size = 20
   vocab_size = 10000
-
+  L = 10
+  keep_prob_words = 1
 
 class SmallConfig(object):
   """Small config."""
@@ -592,6 +593,9 @@ def main(_):
   raw_data = reader.ptb_raw_data(FLAGS.data_path)
   train_data, valid_data, test_data, _ = raw_data
 
+  if not os.path.exists(FLAGS.save_path):
+      os.makedirs(FLAGS.save_path)
+
   config = get_config()
   eval_config = get_config()
   # eval_config.batch_size = 1
@@ -632,9 +636,6 @@ def main(_):
     #     test_perplexity = run_epoch(session, mtest)
     #     print("Test Perplexity: %.3f" % test_perplexity)
     #   sys.exit()
-
-
-
 
 
 
