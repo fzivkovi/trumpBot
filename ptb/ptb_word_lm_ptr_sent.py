@@ -311,6 +311,7 @@ class PTBModel(object):
     # s undergoes reduction STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE to result in g's. 
     g = tf.matmul(q,s) # STEPS*BATCHSIZE
 
+    tf.Print(g, [g], message='g ', summarize=100)
 
     #########################################################
     ## This section is for the L portion.
@@ -592,7 +593,7 @@ def main(_):
     raise ValueError("Must set --data_path to PTB data directory")
 
   raw_data = reader.ptb_raw_data(FLAGS.data_path)
-  train_data, valid_data, test_data, _ = raw_data
+  train_data, valid_data, test_data, _, word_to_ids = raw_data
 
   if not os.path.exists(FLAGS.save_path):
       os.makedirs(FLAGS.save_path)
