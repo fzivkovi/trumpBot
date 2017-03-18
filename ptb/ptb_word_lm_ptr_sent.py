@@ -170,7 +170,7 @@ class PTBModel(object):
     if is_training and config.keep_prob < 1:
       def attn_cell():
         return tf.contrib.rnn.DropoutWrapper(
-            lstm_cell(), output_keep_prob=config.keep_prob)
+            lstm_cell(), output_keep_prob=config.keep_prob, input_keep_prob=config.keep_prob)
     cell = tf.contrib.rnn.MultiRNNCell(
         [attn_cell() for _ in range(config.num_layers)], state_is_tuple=True)
 
@@ -181,8 +181,8 @@ class PTBModel(object):
           "embedding", [vocab_size, size], dtype=data_type())
       inputs = tf.nn.embedding_lookup(embedding, input_.input_data)
 
-    if is_training and config.keep_prob < 1:
-      inputs = tf.nn.dropout(inputs, config.keep_prob) 
+    if is_training and config.keep_prob_words < 1:
+      inputs = tf.nn.dropout(inputs, config.keep_prob_words) 
 
     # Simplified version of models/tutorials/rnn/rnn.py's rnn().
     # This builds an unrolled LSTM for tutorial purposes only.
@@ -508,14 +508,15 @@ class MediumConfig(object):
   learning_rate = 1.0
   max_grad_norm = 5
   num_layers = 2
-  num_steps = 20
+  num_steps = 15
   L = 100
   hidden_size = 650
   max_epoch = 6
-  max_max_epoch = 39
+  max_max_epoch = 80
   keep_prob = 0.5
+  keep_prob_words = 0.75
   lr_decay = 0.8
-  batch_size = 20
+  batch_size = 32
   vocab_size = 10000
 
 
@@ -631,6 +632,11 @@ def main(_):
     #     test_perplexity = run_epoch(session, mtest)
     #     print("Test Perplexity: %.3f" % test_perplexity)
     #   sys.exit()
+
+
+
+
+
 
     # small TODO: make so that you can resume training a session as well.
     # Now begins a new session and saves it along the way.

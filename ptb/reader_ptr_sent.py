@@ -167,16 +167,3 @@ def ptb_producer(raw_data, batch_size, num_steps, L, name=None):
     return x, y
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
