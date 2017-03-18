@@ -502,7 +502,7 @@ class SmallConfig(object):
   lr_decay = 0.9
   batch_size = 20
   vocab_size = 10000
-
+  keep_prob_words = 0.9
 
 class MediumConfig(object):
   """Medium config."""
@@ -510,15 +510,15 @@ class MediumConfig(object):
   learning_rate = 0.001
   max_grad_norm = 5
   num_layers = 2
-  num_steps = 30
-  L = 100
+  num_steps = 25
+  L = 85
   hidden_size = 500
   max_epoch = 6
   max_max_epoch = 80
   keep_prob = 0.5
   keep_prob_words = 0.75
   lr_decay = 0.9
-  batch_size = 10
+  batch_size = 5
   vocab_size = 10000
 
 
