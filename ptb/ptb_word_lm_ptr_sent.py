@@ -521,7 +521,7 @@ class SmallConfig(object):
   learning_rate = 0.005
   max_grad_norm = 1
   num_layers = 2
-  num_steps = 20
+  num_steps = 2
   L = 50
   hidden_size = 200
   max_epoch = 4
@@ -530,7 +530,7 @@ class SmallConfig(object):
   lr_decay = 0.5
   batch_size = 20
   vocab_size = 10000
-  keep_prob_words = 0.9
+  keep_prob_words = 0.5
 
 class MediumConfig(object):
   """Medium config."""
@@ -544,7 +544,7 @@ class MediumConfig(object):
   max_epoch = 6
   max_max_epoch = 80
   keep_prob = 0.5
-  keep_prob_words = 0.75
+  keep_prob_words = 0.5
   lr_decay = 0.5
   batch_size = 5
   vocab_size = 10000
@@ -609,7 +609,7 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
       targets = vals["targets"]
       p_ptr = vals["p_ptr"]
 
-      # print('gs ', Gs)
+      print('gs ', Gs)
       # print('inputs ',inputs)
       # print('targets ',targets)
       # print('p_ptr ', p_ptr)
