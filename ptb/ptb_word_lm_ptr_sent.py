@@ -616,7 +616,7 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
 
       correspondingIndex, minG = min(enumerate(Gs), key=operator.itemgetter(1))
 
-      if minG < 0.1:
+      if minG < 0.4:
 
         # Chop off those that were masked, and format inputs.
         inputs = [[i]* model.input.num_steps for i in inputs] # FIGURE OUT WHICH TO REMOVE.
