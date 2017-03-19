@@ -188,25 +188,24 @@ class PTBModel(object):
     if is_training and config.keep_prob_words < 1:
       inputs = tf.nn.dropout(inputs, config.keep_prob_words) 
 
-    # Simplified version of models/tutorials/rnn/rnn.py's rnn().
-    # This builds an unrolled LSTM for tutorial purposes only.
-    # In general, use the rnn() or state_saving_rnn() from rnn.py.
-    #
-    # The alternative version of the code below is:
-    # Couldn't get this to work
-    # inputs = tf.unstack(inputs, num=num_steps+config.L, axis=1)  
-    # outputs_all, state = tf.contrib.rnn(cell, inputs,
-    #                            initial_state=self._initial_state)
-    outputs_all = []
-    state = self._initial_state
-    with tf.variable_scope("RNN"):
-      for time_step in range(num_steps + config.L):
-        if time_step > 0: tf.get_variable_scope().reuse_variables()
-        (cell_output, state) = cell(inputs[:, time_step, :], state)
-        outputs_all.append(cell_output)
 
-    outputs_prediction = outputs_all[-num_steps:]
-    outputs_L = outputs_all[:config.L]
+    outputs_all, state = tf.nn.dynamic_rnn(cell, inputs, 
+                               initial_state=self._initial_state) # sequence_length can also be set.
+
+    # The old way to do this:
+    # outputs_all = []
+    # state = self._initial_state
+    # with tf.variable_scope("RNN"):
+    #   for time_step in range(num_steps + config.L):
+    #     if time_step > 0: tf.get_variable_scope().reuse_variables()
+    #     (cell_output, state) = cell(inputs[:, time_step, :], state)
+    #     outputs_all.append(cell_output)
+
+    # This is the order it was in for the first method, which I'd written it for.
+    outputs_all = tf.transpose(outputs_all,perm=[1,0,2])
+
+    outputs_prediction = tf.gather(outputs_all, tf.range(config.L, config.L+num_steps)) 
+    outputs_L = tf.gather(outputs_all, tf.range(0, config.L))
 
     outputs_all = tf.reshape(tf.concat(outputs_all, 1), [-1, size])
     outputs_prediction = tf.reshape(tf.concat(outputs_prediction, 1), [-1, size])
@@ -493,7 +492,7 @@ class TinyConfig(object):
   max_grad_norm = 1
   num_layers = 1
   num_steps = 2
-  hidden_size = 2
+  hidden_size = 4
   max_epoch = 1
   max_max_epoch = 2
   keep_prob = 1.0
