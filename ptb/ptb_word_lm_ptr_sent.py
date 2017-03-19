@@ -505,14 +505,14 @@ class TinyConfig(object):
 class SmallConfig(object):
   """Small config."""
   init_scale = 0.1
-  learning_rate = 0.001
+  learning_rate = 0.005
   max_grad_norm = 1
   num_layers = 2
   num_steps = 20
   L = 80
-  hidden_size = 200
+  hidden_size = 350
   max_epoch = 4
-  max_max_epoch = 16
+  max_max_epoch = 25
   keep_prob = 0.5
   lr_decay = 0.5
   batch_size = 20
