@@ -110,6 +110,7 @@ import tensorflow as tf
 # import reader
 import reader_ptr_sent as reader
 import sys
+import operator
 
 import os
 
@@ -129,10 +130,12 @@ flags.DEFINE_bool("use_wiki_text", False,
                   "Expect wiki-text data in train path, not PTB.")
 flags.DEFINE_bool("test", False,
                   "Evaluate just test perplexity alone on best model in save path.")
-flags.DEFINE_bool("vis", False, "Return visualization. Extra calculation.")
+flags.DEFINE_bool("vis", True, "Return visualization. Extra calculation.")
 FLAGS = flags.FLAGS
 
 from tensorflow.python.ops import rnn
+
+from prettytable import PrettyTable
 
 
 def data_type():
@@ -422,9 +425,9 @@ class PTBModel(object):
     self._final_state = state
 
     if vis:
-      self._g_s = g
-      self._in = input_.input_data
-      self._targets = input_.targets
+      self._g_s = g 
+      self._in = input_.input_data 
+      self._targets = tf.reshape(input_.targets, [-1])
       self._p_ptrs =  p_ptr_dense
 
     #################################
@@ -564,7 +567,7 @@ class LargeConfig(object):
   L = 100
 
 
-def run_epoch(session, model, eval_op=None, verbose=False, word_to_ids=None):
+def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
   """Runs the model on the given data."""
   start_time = time.time()
   costs = 0.0
@@ -600,14 +603,51 @@ def run_epoch(session, model, eval_op=None, verbose=False, word_to_ids=None):
     cost = vals["cost"]
     state = vals["final_state"]
 
-    if FLAGS.vis:
+    if FLAGS.vis and ids_to_words:
       Gs = vals["Gs"]
       inputs = vals["in"]
       targets = vals["targets"]
       p_ptr = vals["p_ptr"]
 
-      print(p_ptr)
-      print(Gs)
+      # print('gs ', Gs)
+      # print('inputs ',inputs)
+      # print('targets ',targets)
+      # print('p_ptr ', p_ptr)
+
+      correspondingIndex, minG = min(enumerate(Gs), key=operator.itemgetter(1))
+
+      if minG < 0.1:
+
+        # Chop off those that were masked, and format inputs.
+        inputs = [[i,i,i] for i in inputs] # FIGURE OUT WHICH TO REMOVE.
+        inputs = [i for numsteps in inputs for i in numsteps]
+
+        minGInputs = [ids_to_words[i] for i in inputs[correspondingIndex]]
+        minGTargets= ids_to_words[targets[correspondingIndex]]
+        minG_p_ptr = p_ptr[correspondingIndex]
+
+        if minGTargets in minGInputs:
+          correctIndexToPoint = minGInputs.index(minGTargets)
+          predictedIndex = list(minG_p_ptr).index(max(minG_p_ptr))
+          max_value = max(minG_p_ptr)
+          predicted_value = minG_p_ptr[predictedIndex]
+          diff = max_value - predicted_value
+          nextMaxPredictedPercent = max(n for n in minG_p_ptr if n!=max_value)
+          correct = False
+          if correctIndexToPoint == predictedIndex:
+            result = "Correctly done! Points at '%s' with percentage %s" % (minGInputs[predictedIndex], minG_p_ptr[predictedIndex])
+            correct = True
+          else:
+            result = "Points at '%s' but should be '%s', diff %s" % (minGInputs[predictedIndex], minGInputs[correctIndexToPoint] , diff)
+
+          if (correct == True and nextMaxPredictedPercent > 0.01) or (correct==False and diff > 0.01):
+            t = PrettyTable(['Parameter', 'Values']) # could make prettier by separating each value.
+            t.add_row(['g', minG])
+            t.add_row(['inputs', minGInputs])
+            t.add_row(['p_ptr', minG_p_ptr])
+            t.add_row(['targetWord', minGTargets])
+            t.add_row(['result', result])
+            print(t)
 
 
     costs += cost
@@ -642,7 +682,9 @@ def main(_):
   train_data, valid_data, test_data, _, word_to_ids = raw_data
 
   if not FLAGS.vis:
-    word_to_ids = None
+    ids_to_words = None
+  else:
+    ids_to_words = {v: k for k, v in word_to_ids.iteritems()}
 
   if not os.path.exists(FLAGS.save_path):
       os.makedirs(FLAGS.save_path)
@@ -687,10 +729,10 @@ def main(_):
 
         print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
         train_perplexity = run_epoch(session, m, eval_op=m.train_op,
-                                     verbose=True, word_to_ids=word_to_ids)
+                                     verbose=True, ids_to_words=ids_to_words)
 
         print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
-        valid_perplexity = run_epoch(session, mvalid, word_to_ids=word_to_ids)
+        valid_perplexity = run_epoch(session, mvalid, ids_to_words=ids_to_words)
         print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
 
         # Save only if better than any before.
@@ -700,7 +742,7 @@ def main(_):
           sv.saver.save(session, FLAGS.save_path, global_step=i)#, max_to_keep=None)
 
         if FLAGS.test:
-          test_perplexity = run_epoch(session, mtest,word_to_ids=word_to_ids)
+          test_perplexity = run_epoch(session, mtest,ids_to_words=ids_to_words)
           print("Test Perplexity: %.3f" % test_perplexity)
 
 if __name__ == "__main__":
