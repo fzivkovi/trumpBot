@@ -164,19 +164,23 @@ class PTBModel(object):
     size = config.hidden_size
     vocab_size = config.vocab_size
 
-    # Slightly better results can be obtained with forget gate biases
-    # initialized to 1 but the hyperparameters of the model would need to be
-    # different than reported in the paper.
+
     def lstm_cell():
       return tf.contrib.rnn.BasicLSTMCell(
-          size, forget_bias=0.0, state_is_tuple=True)
+          size, forget_bias=1.0, state_is_tuple=True)
     attn_cell = lstm_cell
     if is_training and config.keep_prob < 1:
-      def attn_cell():
-        return tf.contrib.rnn.DropoutWrapper(
-            lstm_cell(), output_keep_prob=config.keep_prob, input_keep_prob=config.keep_prob)
+      def attn_cell(i):
+        # add output dropout only to last layer.
+        if i == config.num_layers-1:
+          return tf.contrib.rnn.DropoutWrapper(
+              lstm_cell(), output_keep_prob=config.keep_prob, input_keep_prob=config.keep_prob)
+        else:
+           return tf.contrib.rnn.DropoutWrapper(
+              lstm_cell(), input_keep_prob=config.keep_prob)         
+
     cell = tf.contrib.rnn.MultiRNNCell(
-        [attn_cell() for _ in range(config.num_layers)], state_is_tuple=True)
+        [attn_cell(i) for i in range(config.num_layers)], state_is_tuple=True)
 
     self._initial_state = cell.zero_state(batch_size, data_type())
 
@@ -429,8 +433,8 @@ class PTBModel(object):
     tvars = tf.trainable_variables()
     grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),
                                       config.max_grad_norm)
-    # optimizer = tf.train.GradientDescentOptimizer(self._lr)
-    optimizer = tf.train.AdamOptimizer(self.lr)
+    optimizer = tf.train.GradientDescentOptimizer(self._lr)
+    #optimizer = tf.train.AdamOptimizer(self.lr)
     self._train_op = optimizer.apply_gradients(
         zip(grads, tvars),
         global_step=tf.contrib.framework.get_or_create_global_step())
@@ -438,6 +442,10 @@ class PTBModel(object):
     self._new_lr = tf.placeholder(
         data_type(), shape=[], name="new_learning_rate")
     self._lr_update = tf.assign(self._lr, self._new_lr)
+
+    if vis:
+      self._grads = grads
+
 
   def assign_lr(self, session, lr_value):
     session.run(self._lr_update, feed_dict={self._new_lr: lr_value})
@@ -483,6 +491,10 @@ class PTBModel(object):
   def train_op(self):
     return self._train_op
 
+  @property
+  def grads(self):
+    return self._grads
+
 
 # Just use for testing purposes.
 class TinyConfig(object):
@@ -522,7 +534,8 @@ class SmallConfig(object):
 class MediumConfig(object):
   """Medium config."""
   init_scale = 0.05
-  learning_rate = 0.003
+  #learning_rate = 0.003
+  learning_rate = 1.0
   max_grad_norm = 1
   num_layers = 2
   num_steps = 25
