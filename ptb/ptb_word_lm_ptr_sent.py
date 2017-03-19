@@ -615,8 +615,8 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
       # print('p_ptr ', p_ptr)
 
       correspondingIndex, minG = min(enumerate(Gs), key=operator.itemgetter(1))
-
       with open('gValues.txt','a') as f:
+        # So that we monitor see whether g is being used.
         f.write(str(minG)[:2]+'\n')
 
       if minG < 0.4:
