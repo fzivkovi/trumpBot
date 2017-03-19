@@ -25,7 +25,7 @@ useMovieData = True
 # useful: tensorboard --inspect --logdir=/tmp/tensorflow/trump3_vinyals
 logs_path = '/tmp/tensorflow/trump3_%s' % attention_type
 # At each checkpoint, models params are saved, model is evaluated, and results printed
-steps_per_checkpoint = 4000 
+steps_per_checkpoint = 400 
 
 glove_dir = 'data/dwr'
 glove_possible_dimensions = [50,100,200,300]

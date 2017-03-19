@@ -725,7 +725,8 @@ def main(_):
     # Automatically resumes session if in save path.
     bestRunningValidationPerplexity = 1000
     sv = tf.train.Supervisor(logdir=FLAGS.save_path)
-    with sv.managed_session() as session:
+    cproto = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
+    with sv.managed_session(config=cproto) as session:
       for i in range(config.max_max_epoch):
         lr_decay = config.lr_decay ** max(i + 1 - config.max_epoch, 0.0)
         m.assign_lr(session, config.learning_rate * lr_decay)
