@@ -501,7 +501,7 @@ class PTBModel(object):
 class TinyConfig(object):
   """Tiny config, for testing."""
   init_scale = 0.1
-  learning_rate = 0.001
+  learning_rate = 0.008
   max_grad_norm = 1
   num_layers = 1
   num_steps = 2
@@ -518,7 +518,7 @@ class TinyConfig(object):
 class SmallConfig(object):
   """Small config."""
   init_scale = 0.1
-  learning_rate = 0.001
+  learning_rate = 0.005
   max_grad_norm = 1
   num_layers = 2
   num_steps = 20
@@ -535,7 +535,7 @@ class SmallConfig(object):
 class MediumConfig(object):
   """Medium config."""
   init_scale = 0.05
-  learning_rate = 0.002
+  learning_rate = 0.003
   max_grad_norm = 1
   num_layers = 2
   num_steps = 25
@@ -545,7 +545,7 @@ class MediumConfig(object):
   max_max_epoch = 80
   keep_prob = 0.5
   keep_prob_words = 0.75
-  lr_decay = 0.7
+  lr_decay = 0.5
   batch_size = 5
   vocab_size = 10000
 
