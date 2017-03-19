@@ -619,8 +619,11 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
       if minG < 0.1:
 
         # Chop off those that were masked, and format inputs.
-        inputs = [[i,i,i] for i in inputs] # FIGURE OUT WHICH TO REMOVE.
+        inputs = [[i]*num_steps for i in inputs] # FIGURE OUT WHICH TO REMOVE.
         inputs = [i for numsteps in inputs for i in numsteps]
+
+        # print(correspondingIndex)
+        # print(inputs)
 
         minGInputs = [ids_to_words[i] for i in inputs[correspondingIndex]]
         minGTargets= ids_to_words[targets[correspondingIndex]]
