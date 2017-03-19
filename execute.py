@@ -127,6 +127,9 @@ def create_model(session):
   return model
 
 def train():
+
+  bestPerp = 100000000
+
   with tf.Session(config=config_tf) as sess:
     model = create_model(sess)
     print("Creating RNN with %d units.\n" % (config.layer_size))
@@ -177,10 +180,8 @@ def train():
         # if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
         #   sess.run(model.learning_rate_decay_op)
         previous_losses.append(loss)
-        # Save checkpoint and zero timer and loss.
-        checkpoint_path = os.path.join(config.working_directory, "seq2seq.ckpt")
-        model.saver.save(sess, checkpoint_path, global_step=model.global_step)
         step_time, loss = 0.0, 0.0
+        totalPerp = 0
         # Run evals on development set and print their perplexity.
         for bucket_id in xrange(len(config._buckets)):
           if len(validation_set[bucket_id]) == 0:
@@ -192,7 +193,19 @@ def train():
                                        target_weights, bucket_id, True, summary_op)
 
           eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
+          if eval_ppx:
+            totalPerp += eval_ppx
+          else:
+            totalPerp = 10000000
           print("  Bucket %d: validation perplexity %.2f" % (bucket_id, eval_ppx))
+
+        # Save checkpoint and zero timer and loss.
+        if totalPerp < bestPerp:
+          bestPerp = totalPerp
+          print("BestPerp: %s. Saving model." % bestPerp)
+          checkpoint_path = os.path.join(config.working_directory, "seq2seq.ckpt")
+          model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+
         sys.stdout.flush()
 
 def test():

@@ -127,7 +127,7 @@ class Seq2SeqModel(object):
           # tf.summary.histogram('gradient_norm_%s' % buck, norm)
           # tf.summary.histogram('clipped_gradients_%s' % buck, clipped_gradients)
 
-    self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=None)
+    self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=4)
 
   def step(self, session, encoder_inputs, decoder_inputs, target_weights,
            bucket_id, test_mode, summary_op):
