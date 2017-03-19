@@ -640,7 +640,7 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
           else:
             result = "Points at '%s' but should be '%s', diff %s" % (minGInputs[predictedIndex], minGInputs[correctIndexToPoint] , diff)
 
-          if (correct == True and nextMaxPredictedPercent > 0.01) or (correct==False and diff > 0.01):
+          if (correct == True and nextMaxPredictedPercent > 0.1) or (correct==False and diff > 0.1):
             t = PrettyTable(['Parameter', 'Values']) # could make prettier by separating each value.
             t.add_row(['g', minG])
             t.add_row(['inputs', minGInputs])
