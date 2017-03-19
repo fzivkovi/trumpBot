@@ -348,8 +348,8 @@ class PTBModel(object):
     masks = tf.ones([batch_size, num_steps])
     masks = tf.map_fn(lambda x: getLowerDiag(x), masks)
     masks = tf.transpose(masks, perm=[1, 0, 2]) 
-    masks = tf.reshape(masks, [num_steps*batch_size, num_steps])
-    masks = concatenateColumnOntoMatrix(masks, tf.ones_like(g, dtype=data_type()), num_steps, batch_size)
+    finalMasks = tf.reshape(masks, [num_steps*batch_size, num_steps])
+    masks = concatenateColumnOntoMatrix(finalMasks, tf.ones_like(g, dtype=data_type()), num_steps, batch_size)
 
     # Must only grab the inputs we are making predictions on.
     inp = input_.input_data
@@ -407,21 +407,10 @@ class PTBModel(object):
     # print('targets, ',input_.targets)
     targets = tf.reshape(input_.targets, [-1])
 
-    # This is the cross-entropy calculation, where y = 1 for targets.
-    # Calculate loss by creating a one-hot mask (target), multiply, then reduce_sum along that axis.
+    # Calculate cross entropy.
     target_mask = tf.one_hot(targets, vocab_size,dtype=data_type())
-    after_mask = tf.reduce_sum(target_mask * p_final, 1)
-    loss = -tf.log(after_mask)
+    loss = tf.reduce_sum(target_mask * -tf.log(p_final), 1)
     self._cost = cost = tf.reduce_sum(loss) / batch_size
-
-    # Revisit this different implementation that doesn't work.
-    # yHat = p_final
-    # targets_sparse = tf.one_hot(targets, vocab_size,dtype=data_type())
-    # yHat = tf.reduce_sum(yHat, 1)
-    # y = tf.reduce_sum(targets_sparse, 1)
-    # loss = y*tf.log(yHat)
-    # self._cost = cost = -tf.reduce_sum(loss) / batch_size
-
     self._final_state = state
 
     if vis:
@@ -494,7 +483,6 @@ class PTBModel(object):
   @property
   def train_op(self):
     return self._train_op
-
 
 
 # Just use for testing purposes.
