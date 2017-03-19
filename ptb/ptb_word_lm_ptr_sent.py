@@ -647,8 +647,8 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
             t.add_row(['p_ptr', minG_p_ptr])
             t.add_row(['targetWord', minGTargets])
             t.add_row(['result', result])
-            print(t)
-
+            with open('visualizations.txt', 'a') as f:
+              f.write(str(t) + '\n\n')
 
     costs += cost
     iters += model.input.num_steps
