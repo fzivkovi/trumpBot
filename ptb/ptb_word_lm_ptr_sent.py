@@ -129,6 +129,7 @@ flags.DEFINE_bool("use_wiki_text", False,
                   "Expect wiki-text data in train path, not PTB.")
 flags.DEFINE_bool("test", False,
                   "Evaluate just test perplexity alone on best model in save path.")
+flags.DEFINE_bool("vis", False, "Return visualization. Extra calculation.")
 FLAGS = flags.FLAGS
 
 from tensorflow.python.ops import rnn
@@ -152,7 +153,7 @@ class PTBInput(object):
 class PTBModel(object):
   """The PTB model."""
 
-  def __init__(self, is_training, config, input_):
+  def __init__(self, is_training, config, input_, vis):
     self._input = input_
 
     batch_size = input_.batch_size
@@ -420,6 +421,12 @@ class PTBModel(object):
 
     self._final_state = state
 
+    if vis:
+      self._g_s = g
+      self._in = input_.input_data
+      self._targets = input_.targets
+      self._p_ptrs =  p_ptr_dense
+
     #################################
     ####   END POINTER SENTINEL #####
     #################################
@@ -461,6 +468,23 @@ class PTBModel(object):
     return self._final_state
 
   @property
+  def g_s(self):
+    return self._g_s
+
+  @property
+  def inputs_individual(self):
+    return self._in
+
+  @property
+  def targets(self):
+    return self._targets
+
+  @property
+  def p_ptrs(self):
+    return self._p_ptrs
+
+
+  @property
   def lr(self):
     return self._lr
 
@@ -492,7 +516,7 @@ class SmallConfig(object):
   """Small config."""
   init_scale = 0.1
   learning_rate = 0.001
-  max_grad_norm = 5
+  max_grad_norm = 1
   num_layers = 2
   num_steps = 20
   L = 100
@@ -500,7 +524,7 @@ class SmallConfig(object):
   max_epoch = 4
   max_max_epoch = 16
   keep_prob = 1.0
-  lr_decay = 0.9
+  lr_decay = 0.5
   batch_size = 20
   vocab_size = 10000
   keep_prob_words = 0.9
@@ -508,8 +532,8 @@ class SmallConfig(object):
 class MediumConfig(object):
   """Medium config."""
   init_scale = 0.05
-  learning_rate = 0.001
-  max_grad_norm = 5
+  learning_rate = 0.002
+  max_grad_norm = 1
   num_layers = 2
   num_steps = 25
   L = 85
@@ -518,7 +542,7 @@ class MediumConfig(object):
   max_max_epoch = 80
   keep_prob = 0.5
   keep_prob_words = 0.75
-  lr_decay = 0.9
+  lr_decay = 0.7
   batch_size = 5
   vocab_size = 10000
 
@@ -540,17 +564,29 @@ class LargeConfig(object):
   L = 100
 
 
-def run_epoch(session, model, eval_op=None, verbose=False):
+def run_epoch(session, model, eval_op=None, verbose=False, word_to_ids=None):
   """Runs the model on the given data."""
   start_time = time.time()
   costs = 0.0
   iters = 0
   state = session.run(model.initial_state)
 
-  fetches = {
-      "cost": model.cost,
-      "final_state": model.final_state,
-  }
+
+  if FLAGS.vis:
+    fetches = {
+        "cost": model.cost,
+        "final_state": model.final_state,
+        "Gs": model.g_s,
+        "in": model.inputs_individual,
+        "targets": model.targets,
+        "p_ptr": model.p_ptrs,
+    }
+  else:
+    fetches = {
+    "cost": model.cost,
+    "final_state": model.final_state,
+    }
+
   if eval_op is not None:
     fetches["eval_op"] = eval_op
 
@@ -563,6 +599,16 @@ def run_epoch(session, model, eval_op=None, verbose=False):
     vals = session.run(fetches, feed_dict)
     cost = vals["cost"]
     state = vals["final_state"]
+
+    if FLAGS.vis:
+      Gs = vals["Gs"]
+      inputs = vals["in"]
+      targets = vals["targets"]
+      p_ptr = vals["p_ptr"]
+
+      print(p_ptr)
+      print(Gs)
+
 
     costs += cost
     iters += model.input.num_steps
@@ -595,6 +641,9 @@ def main(_):
   raw_data = reader.ptb_raw_data(FLAGS.data_path)
   train_data, valid_data, test_data, _, word_to_ids = raw_data
 
+  if not FLAGS.vis:
+    word_to_ids = None
+
   if not os.path.exists(FLAGS.save_path):
       os.makedirs(FLAGS.save_path)
 
@@ -610,39 +659,25 @@ def main(_):
     with tf.name_scope("Train"):
       train_input = PTBInput(config=config, data=train_data, name="TrainInput")
       with tf.variable_scope("Model", reuse=None, initializer=initializer):
-        m = PTBModel(is_training=True, config=config, input_=train_input)
+        m = PTBModel(is_training=True, config=config, vis=FLAGS.vis, input_=train_input)
       tf.summary.scalar("Training Loss", m.cost)
       tf.summary.scalar("Learning Rate", m.lr)
 
     with tf.name_scope("Valid"):
       valid_input = PTBInput(config=config, data=valid_data, name="ValidInput")
       with tf.variable_scope("Model", reuse=True, initializer=initializer):
-        mvalid = PTBModel(is_training=False, config=config, input_=valid_input)
+        mvalid = PTBModel(is_training=False, config=config, vis=FLAGS.vis,input_=valid_input)
       tf.summary.scalar("Validation Loss", mvalid.cost)
 
     with tf.name_scope("Test"):
       test_input = PTBInput(config=eval_config, data=test_data, name="TestInput")
       with tf.variable_scope("Model", reuse=True, initializer=initializer):
-        mtest = PTBModel(is_training=False, config=eval_config,
+        mtest = PTBModel(is_training=False, config=eval_config, vis=FLAGS.vis, 
                          input_=test_input)
 
-    # TODO: This doesn't work. sad.
-    # if FLAGS.test:
-    #   # Load model, run epoch on test data, print test perplexity, quit
-    #   saver = tf.train.Saver()
-    #   sv = tf.train.Supervisor(logdir=FLAGS.save_path)
-    #   with sv.managed_session() as session:
-    #     # Restore variables from disk.
-    #     print("Loading best model.")
-    #     sv.saver.restore(session, FLAGS.save_path)
-    #     test_perplexity = run_epoch(session, mtest)
-    #     print("Test Perplexity: %.3f" % test_perplexity)
-    #   sys.exit()
 
-
-
-    # small TODO: make so that you can resume training a session as well.
     # Now begins a new session and saves it along the way.
+    # Automatically resumes session if in save path.
     bestRunningValidationPerplexity = 1000
     sv = tf.train.Supervisor(logdir=FLAGS.save_path)
     with sv.managed_session() as session:
@@ -652,10 +687,10 @@ def main(_):
 
         print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
         train_perplexity = run_epoch(session, m, eval_op=m.train_op,
-                                     verbose=True)
+                                     verbose=True, word_to_ids=word_to_ids)
 
         print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
-        valid_perplexity = run_epoch(session, mvalid)
+        valid_perplexity = run_epoch(session, mvalid, word_to_ids=word_to_ids)
         print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
 
         # Save only if better than any before.
@@ -665,7 +700,7 @@ def main(_):
           sv.saver.save(session, FLAGS.save_path, global_step=i)#, max_to_keep=None)
 
         if FLAGS.test:
-          test_perplexity = run_epoch(session, mtest)
+          test_perplexity = run_epoch(session, mtest,word_to_ids=word_to_ids)
           print("Test Perplexity: %.3f" % test_perplexity)
 
 if __name__ == "__main__":
