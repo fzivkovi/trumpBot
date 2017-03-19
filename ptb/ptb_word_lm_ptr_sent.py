@@ -171,7 +171,7 @@ class PTBModel(object):
     attn_cell = lstm_cell
     if is_training and config.keep_prob < 1:
       def attn_cell(i):
-        # add output dropout only to last layer.
+        # Different dropout configurations for the layers. As decribed in Pointer Sentinel paper.
         if i == config.num_layers-1:
           return tf.contrib.rnn.DropoutWrapper(
               lstm_cell(), output_keep_prob=config.keep_prob, input_keep_prob=config.keep_prob)
@@ -179,8 +179,12 @@ class PTBModel(object):
            return tf.contrib.rnn.DropoutWrapper(
               lstm_cell(), input_keep_prob=config.keep_prob)         
 
-    cell = tf.contrib.rnn.MultiRNNCell(
-        [attn_cell(i) for i in range(config.num_layers)], state_is_tuple=True)
+      cell = tf.contrib.rnn.MultiRNNCell(
+          [attn_cell(i) for i in range(config.num_layers)], state_is_tuple=True)
+
+    else:
+      cell = tf.contrib.rnn.MultiRNNCell(
+          [attn_cell() for _ in range(config.num_layers)], state_is_tuple=True)
 
     self._initial_state = cell.zero_state(batch_size, data_type())
 
@@ -500,7 +504,8 @@ class PTBModel(object):
 class TinyConfig(object):
   """Tiny config, for testing."""
   init_scale = 0.1
-  learning_rate = 0.008
+  # learning_rate = 0.008
+  learning_rate = 1.0
   max_grad_norm = 1
   num_layers = 1
   num_steps = 2
@@ -517,7 +522,8 @@ class TinyConfig(object):
 class SmallConfig(object):
   """Small config."""
   init_scale = 0.1
-  learning_rate = 0.001
+  # learning_rate = 0.001
+  learning_rate = 1.0
   max_grad_norm = 1
   num_layers = 2
   num_steps = 35
@@ -583,6 +589,7 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
         "in": model.inputs_individual,
         "targets": model.targets,
         "p_ptr": model.p_ptrs,
+        "grads": model.grads,
     }
   else:
     fetches = {
@@ -608,6 +615,9 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
       inputs = vals["in"]
       targets = vals["targets"]
       p_ptr = vals["p_ptr"]
+      grads = vals["grads"]
+
+      #print(grads)
 
       # print('gs ', Gs)
       # print('inputs ',inputs)
