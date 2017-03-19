@@ -521,8 +521,8 @@ class SmallConfig(object):
   learning_rate = 0.001
   max_grad_norm = 1
   num_layers = 2
-  num_steps = 1
-  L = 100
+  num_steps = 35
+  L = 80
   hidden_size = 200
   max_epoch = 4
   max_max_epoch = 16
@@ -648,7 +648,7 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
 
           if (correct == True and nextMaxPredictedPercent > 0.1) or (correct==False and diff > 0.1):
             with open('visualizations.txt', 'a') as f:
-              f.write("A GOOD DATA POINT HERE: \n\n')
+              f.write("A GOOD DATA POINT HERE: \n\n")
 
           t = PrettyTable(['Parameter', 'Values']) # could make prettier by separating each value.
           t.add_row(['g', minG])
