@@ -518,15 +518,15 @@ class TinyConfig(object):
 class SmallConfig(object):
   """Small config."""
   init_scale = 0.1
-  learning_rate = 0.005
+  learning_rate = 0.001
   max_grad_norm = 1
   num_layers = 2
-  num_steps = 2
-  L = 50
+  num_steps = 1
+  L = 100
   hidden_size = 200
   max_epoch = 4
   max_max_epoch = 16
-  keep_prob =0.7
+  keep_prob = 0.5
   lr_decay = 0.5
   batch_size = 20
   vocab_size = 10000
@@ -609,12 +609,15 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
       targets = vals["targets"]
       p_ptr = vals["p_ptr"]
 
-      print('gs ', Gs)
+      # print('gs ', Gs)
       # print('inputs ',inputs)
       # print('targets ',targets)
       # print('p_ptr ', p_ptr)
 
       correspondingIndex, minG = min(enumerate(Gs), key=operator.itemgetter(1))
+
+      with open('gValues.txt','a') as f:
+        f.write(str(minG)[:2]+'\n')
 
       if minG < 0.4:
 
@@ -644,14 +647,17 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
             result = "Points at '%s' but should be '%s', diff %s" % (minGInputs[predictedIndex], minGInputs[correctIndexToPoint] , diff)
 
           if (correct == True and nextMaxPredictedPercent > 0.1) or (correct==False and diff > 0.1):
-            t = PrettyTable(['Parameter', 'Values']) # could make prettier by separating each value.
-            t.add_row(['g', minG])
-            t.add_row(['inputs', minGInputs])
-            t.add_row(['p_ptr', minG_p_ptr])
-            t.add_row(['targetWord', minGTargets])
-            t.add_row(['result', result])
             with open('visualizations.txt', 'a') as f:
-              f.write(str(t) + '\n\n')
+              f.write("A GOOD DATA POINT HERE: \n\n')
+
+          t = PrettyTable(['Parameter', 'Values']) # could make prettier by separating each value.
+          t.add_row(['g', minG])
+          t.add_row(['inputs', minGInputs])
+          t.add_row(['p_ptr', minG_p_ptr])
+          t.add_row(['targetWord', minGTargets])
+          t.add_row(['result', result])
+          with open('visualizations.txt', 'a') as f:
+            f.write(str(t) + '\n\n')
 
     costs += cost
     iters += model.input.num_steps
