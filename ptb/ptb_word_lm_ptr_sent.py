@@ -522,11 +522,11 @@ class SmallConfig(object):
   max_grad_norm = 1
   num_layers = 2
   num_steps = 20
-  L = 100
+  L = 50
   hidden_size = 200
   max_epoch = 4
   max_max_epoch = 16
-  keep_prob = 1.0
+  keep_prob =0.7
   lr_decay = 0.5
   batch_size = 20
   vocab_size = 10000
