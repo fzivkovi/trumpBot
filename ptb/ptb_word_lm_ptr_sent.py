@@ -739,7 +739,7 @@ def main(_):
         if FLAGS.save_path and bestRunningValidationPerplexity >= valid_perplexity:
           print("Saving model to %s." % FLAGS.save_path)
           #global_step = "epoch_%s_valid_perp_%s" % (i,valid_perplexity)
-          sv.saver.save(session, FLAGS.save_path, global_step=i)#, max_to_keep=None)
+          sv.saver.save(session, os.path.join(FLAGS.save_path, 'epoch.txt'), global_step=i, max_to_keep=3)
 
         if FLAGS.test:
           test_perplexity = run_epoch(session, mtest,ids_to_words=ids_to_words)
