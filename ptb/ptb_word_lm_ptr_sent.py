@@ -233,15 +233,6 @@ class PTBModel(object):
     #########################################################
     p_vocab = tf.nn.softmax(logits)
 
-
-
-
-
-
-
-
-
-
     #################################
     #### Common QA for code #########
     #################################
@@ -425,12 +416,13 @@ class PTBModel(object):
 
     # print('input data, ',input_.input_data)
     # print('targets, ',input_.targets)
-    targets = tf.reshape(input_.targets, [-1])
 
     # Calculate cross entropy.
-    target_mask = tf.one_hot(targets, vocab_size,dtype=data_type())
-    loss = tf.reduce_sum(target_mask * -tf.log(p_final), 1)
-
+    target_mask = tf.one_hot(input_.targets, vocab_size, dtype=data_type())
+    target_mask = tf.reduce_sum(target_mask, 1)
+    target_mask = tf.tile(target_mask, [num_steps, 1])
+    target_mask = tf.to_float(target_mask)
+    loss = tf.reduce_sum(target_mask* -tf.log(p_final), 1)
 
 
     # Cost is divided by num_steps later.
