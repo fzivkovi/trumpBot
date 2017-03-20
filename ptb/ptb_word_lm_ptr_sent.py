@@ -135,7 +135,6 @@ FLAGS = flags.FLAGS
 
 from tensorflow.python.ops import rnn
 
-from prettytable import PrettyTable
 
 
 def data_type():
@@ -697,7 +696,7 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
         # So that we monitor see whether g is being used.
         f.write(str(minG)[:3]+'\n')
 
-      if minG < 0.4:
+      if minG < 0.3:
 
         # Chop off those that were masked, and format inputs.
         inputs = [[i]* model.input.num_steps for i in inputs] # FIGURE OUT WHICH TO REMOVE.
@@ -728,12 +727,22 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
             with open('visualizations.txt', 'a') as f:
               f.write("A GOOD DATA POINT HERE: \n\n")
 
-          t = PrettyTable(['Parameter', 'Values']) # could make prettier by separating each value.
-          t.add_row(['g', minG])
-          t.add_row(['inputs', minGInputs])
-          t.add_row(['p_ptr', minG_p_ptr])
-          t.add_row(['targetWord', minGTargets])
-          t.add_row(['result', result])
+          if False:
+            from prettytable import PrettyTable
+            t = PrettyTable(['Parameter', 'Values']) # could make prettier by separating each value.
+            t.add_row(['g', minG])
+            t.add_row(['inputs', minGInputs])
+            t.add_row(['p_ptr', minG_p_ptr])
+            t.add_row(['targetWord', minGTargets])
+            t.add_row(['result', result])
+            print(t)
+
+          t = ''
+          t += 'g: %s\n' % str(minG)
+          t += 'inputs: %s\n' % str(minGInputs)
+          t += 'p_ptr: %s\n' % str(minG_p_ptr)
+          t += 'targetWord: %s\n' % str(minGTargets)
+          t += 'result: %s\n\n' % str(result)
           with open('visualizations.txt', 'a') as f:
             f.write(str(t) + '\n\n')
 
