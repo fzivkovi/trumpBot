@@ -510,7 +510,6 @@ class PTBModel(object):
     return self._tvars
 
 
-
 # Just use for testing purposes.
 class TinyConfig(object):
   """Tiny config, for testing."""
@@ -558,6 +557,7 @@ class SmallConfigForOfficialTest_numSteps1(object):
   > The addition of Pointer Sentinel. 
   > Pointer Sentinel uses num_steps = 1.
   """
+  L = 100
   init_scale = 0.1
   learning_rate = 1.0
   max_grad_norm = 1
@@ -581,6 +581,7 @@ class SmallConfigForOfficialTest_numSteps20(object):
   Except for:
   > The addition of Pointer Sentinel. 
   """
+  L = 100
   init_scale = 0.1
   learning_rate = 1.0
   max_grad_norm = 1
