@@ -559,7 +559,7 @@ class SmallConfigForOfficialTest_numSteps1(object):
   > The addition of Pointer Sentinel. 
   > Pointer Sentinel uses num_steps = 1.
   """
-  L = 100
+  L = 80
   init_scale = 0.1
   learning_rate = 1.0
   max_grad_norm = 1
