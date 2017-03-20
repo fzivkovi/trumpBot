@@ -447,9 +447,6 @@ class PTBModel(object):
         data_type(), shape=[], name="new_learning_rate")
     self._lr_update = tf.assign(self._lr, self._new_lr)
 
-    if vis:
-      self._grads = grads
-
 
   def assign_lr(self, session, lr_value):
     session.run(self._lr_update, feed_dict={self._new_lr: lr_value})
@@ -494,10 +491,6 @@ class PTBModel(object):
   @property
   def train_op(self):
     return self._train_op
-
-  @property
-  def grads(self):
-    return self._grads
 
 
 # Just use for testing purposes.
@@ -589,7 +582,6 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
         "in": model.inputs_individual,
         "targets": model.targets,
         "p_ptr": model.p_ptrs,
-        "grads": model.grads,
     }
   else:
     fetches = {
@@ -615,9 +607,6 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
       inputs = vals["in"]
       targets = vals["targets"]
       p_ptr = vals["p_ptr"]
-      grads = vals["grads"]
-
-      #print(grads)
 
       # print('gs ', Gs)
       # print('inputs ',inputs)
