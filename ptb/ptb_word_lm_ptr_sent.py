@@ -548,6 +548,54 @@ class SmallConfig(object):
   vocab_size = 10000
   keep_prob_words = 0.5
 
+
+class SmallConfigForOfficialTest_numSteps1(object):
+  """Small config.
+  This config is for performing an isolated test. 
+  Parameters are the same as:
+  (Zaremba, et. al.) Recurrent Neural Network Regularization
+  Except for:
+  > The addition of Pointer Sentinel. 
+  > Pointer Sentinel uses num_steps = 1.
+  """
+  init_scale = 0.1
+  learning_rate = 1.0
+  max_grad_norm = 1
+  num_layers = 2
+  num_steps = 1
+  hidden_size = 200
+  max_epoch = 4
+  max_max_epoch = 25
+  keep_prob = 0.5
+  keep_prob_words = 0.8
+  lr_decay = 0.5
+  batch_size = 30
+  vocab_size = 10000
+
+class SmallConfigForOfficialTest_numSteps20(object):
+  """Small config.
+  This config is for performing an isolated test. 
+  Num_steps still equals 20, as in (Zaremba, et. al.) 
+  Parameters are the same as:
+  (Zaremba, et. al.) Recurrent Neural Network Regularization
+  Except for:
+  > The addition of Pointer Sentinel. 
+  """
+  init_scale = 0.1
+  learning_rate = 1.0
+  max_grad_norm = 1
+  num_layers = 2
+  num_steps = 20
+  hidden_size = 200
+  max_epoch = 4
+  max_max_epoch = 25
+  keep_prob = 0.5
+  keep_prob_words = 0.8
+  lr_decay = 0.5
+  batch_size = 30
+  vocab_size = 10000
+
+
 class MediumConfig(object):
   """Medium config."""
   init_scale = 0.05
@@ -708,6 +756,10 @@ def get_config():
     return LargeConfig()
   elif FLAGS.model == "tiny":
     return TinyConfig()
+  elif FLAGS.model == "official_test_1":
+    return SmallConfigForOfficialTest_numSteps1()
+  elif FLAGS.model == "official_test_2":
+    return SmallConfigForOfficialTest_numSteps20()
   else:
     raise ValueError("Invalid model: %s", FLAGS.model)
 
