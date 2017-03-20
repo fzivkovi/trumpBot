@@ -740,7 +740,7 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
           t = ''
           t += 'g: %s\n' % str(minG)
           t += 'inputs: %s\n' % str(minGInputs)
-          t += 'p_ptr: %s\n' % str(minG_p_ptr)
+          t += 'p_ptr: %s\n' % str(['%.2f' % p for p in minG_p_ptr])
           t += 'targetWord: %s\n' % str(minGTargets)
           t += 'result: %s\n\n' % str(result)
           with open('visualizations.txt', 'a') as f:
