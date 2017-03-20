@@ -303,6 +303,9 @@ class PTBModel(object):
       originalShape = tf.shape(size_num_steps)
       size_num_steps = tf.reshape(size_num_steps, [-1, vocab_size])
       values = tf.reshape(values, [-1])
+
+      # ResourceExhaustedError (see above for traceback): OOM when allocating tensor with shape[10000,72000]
+      # This operation is the most memory consuming. Memory bottleneck!
       r = tf.transpose(tf.multiply(tf.transpose(size_num_steps),values))
       r = tf.reshape(r,originalShape)
       # reduce extra L dimensions. 
