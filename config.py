@@ -20,12 +20,12 @@ mode = args.mode
 assert mode in ['train', 'test', 'serve']
 
 useTensorBoard = False
-useMovieData = True
+useMovieData = False
 # command is: tensorboard --logdir=run1:/tmp/tensorflow/trump1_luong --port 6006
 # useful: tensorboard --inspect --logdir=/tmp/tensorflow/trump3_vinyals
 logs_path = '/tmp/tensorflow/trump3_%s' % attention_type
 # At each checkpoint, models params are saved, model is evaluated, and results printed
-steps_per_checkpoint = 400 
+steps_per_checkpoint = 1500 
 
 glove_dir = 'data/dwr'
 glove_possible_dimensions = [50,100,200,300]
@@ -56,7 +56,7 @@ if not debug:
     # Samples for sampled softmax.
     num_samples = 256
     batch_size = 32
-    glove_dim = glove_possible_dimensions[2]
+    glove_dim = glove_possible_dimensions[3]
     num_layers = 3          # Number of RNN layers.
     # folder where checkpoints, vocabulary, temporary data will be stored
     working_directory = 'working_dir_%s_%s' % (glove_dim, attention_type)
