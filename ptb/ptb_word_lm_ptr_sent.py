@@ -215,12 +215,16 @@ class PTBModel(object):
     outputs_prediction = tf.gather(outputs_all, tf.range(config.L, config.L+num_steps)) 
     outputs_L = tf.gather(outputs_all, tf.range(0, config.L))
 
-    outputs_all = tf.reshape(tf.concat(outputs_all, 1), [-1, size])
-    outputs_prediction = tf.reshape(tf.concat(outputs_prediction, 1), [-1, size])
+    outputs_prediction = tf.reshape(outputs_prediction, [-1, size])
+
     # outputs_all --> [step0Batch0Hidden, step0Batch1Hidden, ... step1Batch0Hidden, ...stepNbatchNHidden]
     softmax_w = tf.get_variable(
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
+
+    # print(outputs_prediction)
+    # sys.exit()
+
     logits = tf.matmul(outputs_prediction, softmax_w) + softmax_b
 
     #########################################################
@@ -228,6 +232,15 @@ class PTBModel(object):
     ## because cross-entropy needs to be calculated after summation.
     #########################################################
     p_vocab = tf.nn.softmax(logits)
+
+
+
+
+
+
+
+
+
 
     #################################
     #### Common QA for code #########
@@ -417,7 +430,11 @@ class PTBModel(object):
     # Calculate cross entropy.
     target_mask = tf.one_hot(targets, vocab_size,dtype=data_type())
     loss = tf.reduce_sum(target_mask * -tf.log(p_final), 1)
-    self._cost = cost = tf.reduce_sum(loss) / batch_size
+
+
+
+    # Cost is divided by num_steps later.
+    self._cost = cost = tf.reduce_sum(loss) / (batch_size) 
     self._final_state = state
 
     if vis:
@@ -447,6 +464,8 @@ class PTBModel(object):
         data_type(), shape=[], name="new_learning_rate")
     self._lr_update = tf.assign(self._lr, self._new_lr)
 
+    if vis:
+        self._tvars = tvars
 
   def assign_lr(self, session, lr_value):
     session.run(self._lr_update, feed_dict={self._new_lr: lr_value})
@@ -491,6 +510,12 @@ class PTBModel(object):
   @property
   def train_op(self):
     return self._train_op
+
+
+  @property
+  def tvars(self):
+    return self._tvars
+
 
 
 # Just use for testing purposes.
@@ -607,6 +632,18 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
       inputs = vals["in"]
       targets = vals["targets"]
       p_ptr = vals["p_ptr"]
+
+
+      # Analysis of trainable variables with tiny config.
+      # [(10000, 4), (8, 16), (16,), (4, 10000), (10000,), (4, 4), (4,), (4, 1)]
+      # (10000, 4) --> vocab x hidden_size --> embedding matrix.
+      # (8, 16), (16,) --> 
+      #  (4, 1) --> s
+      # (4, 4), (4,) --> q
+      # (4, 10000) --> size x vocab_size --> softmax_w
+      # (10000,) --> softmax_b
+      # print([np.shape(v) for v in vals["tvar"]])
+      # sys.exit()
 
       # print('gs ', Gs)
       # print('inputs ',inputs)
