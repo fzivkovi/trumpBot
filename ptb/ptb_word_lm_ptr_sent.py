@@ -418,9 +418,10 @@ class PTBModel(object):
     # print('targets, ',input_.targets)
 
     # Calculate cross entropy.
-    target_mask = tf.one_hot(input_.targets, vocab_size, dtype=data_type())
-    target_mask = tf.reduce_sum(target_mask, 1)
-    target_mask = tf.tile(target_mask, [num_steps, 1])
+
+
+    target_mask = tf.reshape(tf.transpose(input_.targets), [-1])
+    target_mask = tf.one_hot(target_mask, vocab_size, dtype=data_type())
     target_mask = tf.to_float(target_mask)
     loss = tf.reduce_sum(target_mask* -tf.log(p_final), 1)
 
