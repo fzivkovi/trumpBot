@@ -268,7 +268,12 @@ class PTBModel(object):
       # the two matricies together.
       z_with_pad = tf.pad(z, [[0,0],[0,1]], mode='CONSTANT', name=None)
       sparseMatrix = tf.one_hot(tf.tile([num_steps],[num_steps*batch_size]), num_steps+1, dtype=tf.float32)
-      result = sparseMatrix * g + z_with_pad
+
+      # print(z_with_pad)
+      # print(g)
+      # print(sparseMatrix)
+
+      result = sparseMatrix * tf.tile(tf.expand_dims(g, 1), [1,num_steps+1]) + z_with_pad
       return result
 
     def splitOffG(myMatrix):
@@ -324,11 +329,14 @@ class PTBModel(object):
     # many q's we require.
     q = tf.tanh(tf.matmul(outputs_prediction, W_for_q) + b_for_q, name='q')
 
-    s = tf.get_variable("s", [size,1], dtype=data_type())
+    qTran = tf.reshape(q, [num_steps, batch_size, size])
+    qTran = tf.transpose(qTran, perm=[1,0,2])
+    s = tf.get_variable("s", [num_steps,size], dtype=data_type())
     # s undergoes reduction STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE to result in g's. 
-    g = tf.matmul(q,s) # STEPS*BATCHSIZE
 
-    tf.Print(g, [g], message='g ', summarize=100)
+    g = tf.reduce_sum(tf.multiply(qTran,s), 2) # batchsize*numsteps
+    g = tf.reshape(tf.transpose(g), [num_steps*batch_size])
+
 
     #########################################################
     ## This section is for the L portion.
