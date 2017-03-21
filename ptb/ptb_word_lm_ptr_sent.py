@@ -163,7 +163,6 @@ class PTBModel(object):
     size = config.hidden_size
     vocab_size = config.vocab_size
 
-
     def lstm_cell():
       return tf.contrib.rnn.BasicLSTMCell(
           size, forget_bias=1.0, state_is_tuple=True)
@@ -567,7 +566,7 @@ class SmallConfigForOfficialTest_numSteps1(object):
   > The addition of Pointer Sentinel. 
   > Pointer Sentinel uses num_steps = 1.
   """
-  L = 100
+  L = 80
   init_scale = 0.1
   learning_rate = 1.0
   max_grad_norm = 1
@@ -576,10 +575,10 @@ class SmallConfigForOfficialTest_numSteps1(object):
   hidden_size = 200
   max_epoch = 4
   max_max_epoch = 25
-  keep_prob = 0.5
-  keep_prob_words = 0.8
+  keep_prob = 0.8
+  keep_prob_words = 1.0
   lr_decay = 0.5
-  batch_size = 30
+  batch_size = 15
   vocab_size = 10000
 
 class SmallConfigForOfficialTest_numSteps20(object):
@@ -591,7 +590,7 @@ class SmallConfigForOfficialTest_numSteps20(object):
   Except for:
   > The addition of Pointer Sentinel. 
   """
-  L = 100
+  L = 80
   init_scale = 0.1
   learning_rate = 1.0
   max_grad_norm = 1
@@ -650,7 +649,6 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
   iters = 0
   state = session.run(model.initial_state)
 
-
   if FLAGS.vis:
     fetches = {
         "cost": model.cost,
@@ -679,11 +677,14 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
     cost = vals["cost"]
     state = vals["final_state"]
 
+
     if FLAGS.vis and ids_to_words:
       Gs = vals["Gs"]
       inputs = vals["in"]
       targets = vals["targets"]
       p_ptr = vals["p_ptr"]
+
+
 
 
       # Analysis of trainable variables with tiny config.
