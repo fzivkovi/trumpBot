@@ -4,99 +4,6 @@ Filip Zivkovic, Derek Chen
 CS224N, 2017, One Piece of Final Project.
 Isolated test of Pointer Sentinel Mixture Model on Penn Treebank data.
 
-#################################
-## Grabbing the data and run ####
-#################################
-
-Dependencies: Tensorflow Version 1.0
-
-The data required for this example is in the data/ dir of the
-PTB dataset from Tomas Mikolov's webpage:
-$ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
-$ tar xvf simple-examples.tgz
-WikiText dataset:
-$ wget https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip
-
-To run:
-
-$ python ptb_word_lm.py --data_path=simple-examples/data/
-
-##################
-## Description ###
-##################
-
-Executed an isolated test. Only change: adding pointer sentinel.
-Intent is to analyze how this one change effects results. 
-
-The starter code for this is was in models/tutorials/rnn/ptb in the TensorFlow models repo.
-Tutorial is here: https://www.tensorflow.org/tutorials/recurrent
-Original Mode:
-  (Zaremba, et. al.) Recurrent Neural Network Regularization
-  http://arxiv.org/abs/1409.2329
-Adaptation:
-  Pointer Sentinel Mixtrue Model
-  https://arxiv.org/abs/1609.07843
-
-#################################
-#### Original Models Results  ###
-#################################
-
-Example / benchmark for building a PTB LSTM model.
-
-Trains the model described in:
-(Zaremba, et. al.) Recurrent Neural Network Regularization
-http://arxiv.org/abs/1409.2329
-
-There are 3 supported model configurations:
-===========================================
-| config | epochs | train | valid  | test
-===========================================
-| small  | 13     | 37.99 | 121.39 | 115.91
-| medium | 39     | 48.45 |  86.16 |  82.07
-| large  | 55     | 37.87 |  82.62 |  78.29
-The exact results may vary depending on the random initialization.
-
-#################################
-#### Pointer Sentinel Results  ##
-#################################
-
-
-Epoch: 16 Train Perplexity: 40.052
-Epoch: 16 Valid Perplexity: 118.827
-Test Perplexity: 115.282
-
-===========================================
-| config | epochs | train | valid  | test
-===========================================
-| small  | 16     | 40.05 | 118.82 | 115.28 --> should have run more epochs.
-| medium | ?      | ????? | ?????  |  ????? --> RUN THIS!
-| large  | ?      | ????? | ?????? |  ?????
-The exact results may vary depending on the random initialization.
-
-
-Results using small, num_steps = 100, batchsize=4.
-Epoch: 6 Train Perplexity: 54.825
-Epoch: 6 Valid Perplexity: 120.714
-Test Perplexity: 114.427
-
-
-#################################
-#### Hyperparameters, unchanged #
-#################################
-
-The hyperparameters used in the model:
-- init_scale - the initial scale of the weights
-- learning_rate - the initial value of the learning rate
-- max_grad_norm - the maximum permissible norm of the gradient
-- num_layers - the number of LSTM layers
-- num_steps - the number of unrolled steps of LSTM
-- hidden_size - the number of LSTM units
-- max_epoch - the number of epochs trained with the initial learning rate
-- max_max_epoch - the total number of epochs for training
-- keep_prob - the probability of keeping weights in the dropout layer
-- lr_decay - the decay of the learning rate for each epoch after "max_epoch"
-- batch_size - the batch size
-
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -136,10 +43,8 @@ FLAGS = flags.FLAGS
 from tensorflow.python.ops import rnn
 
 
-
 def data_type():
   return tf.float16 if FLAGS.use_fp16 else tf.float32
-
 
 class PTBInput(object):
   """The input data."""
@@ -150,7 +55,6 @@ class PTBInput(object):
     self.epoch_size = ((len(data) // batch_size) - 1) // num_steps
     self.input_data, self.targets = reader.ptb_producer(
         data, batch_size, num_steps, config.L, name=name)
-
 
 class PTBModel(object):
   """The PTB model."""
@@ -208,6 +112,7 @@ class PTBModel(object):
     #     outputs_all.append(cell_output)
 
     # This is the order it was in for the first method, which I'd written it for.
+    # This unfortinate choice lead to a lot of reshaping, which is slow.
     outputs_all = tf.transpose(outputs_all,perm=[1,0,2])
 
     outputs_prediction = tf.gather(outputs_all, tf.range(config.L, config.L+num_steps)) 
