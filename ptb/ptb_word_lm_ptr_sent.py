@@ -599,10 +599,10 @@ class SmallConfigForOfficialTest_numSteps20(object):
   hidden_size = 200
   max_epoch = 4
   max_max_epoch = 25
-  keep_prob = 0.5
-  keep_prob_words = 0.8
+  keep_prob = 0.9
+  keep_prob_words = 1.0
   lr_decay = 0.5
-  batch_size = 30
+  batch_size = 15
   vocab_size = 10000
 
 
