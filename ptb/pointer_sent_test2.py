@@ -591,7 +591,7 @@ def get_config():
   if FLAGS.model == "tiny":
     return TinyConfig()
   elif FLAGS.model == "official_test_2":
-    return SmallConfigForOfficialTest_numSteps20()
+    return SmallConfigForOfficialTest_numSteps5()
   else:
     raise ValueError("Invalid model: %s", FLAGS.model)
 
