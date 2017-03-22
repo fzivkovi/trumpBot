@@ -2,9 +2,8 @@
 Welcome to Pointer Sentinel Portion of the project.
 This portion requires Tensorflow version 1.0.
 
-
 ####################################
-## Reproducing my results ###
+## Reproducing my results        ###
 ####################################
 
 The data required for this example is in the data/ dir of the
@@ -13,14 +12,13 @@ $ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 $ tar xvf simple-examples.tgz
 
 To execute (Zaremba, et. al.) without modifications, run:
-$ python ptb_word_lm.py --data_path=simple-examples/data/
+$ python ptb_word_lm_original.py --data_path=simple-examples/data/
 
 To execute Pointer Sentinel with Decoder Length of 1, run this:
-$ python ptb_word_lm.py --data_path=simple-examples/data/ --save_path=test1 --model=official_test_1
+$ python pointer_sent_test1.py --data_path=simple-examples/data/ --save_path=test1 --model=official_test_1
 
 To execute Pointer Sentinel with Decoder Length > 1, run this:
-$ python ptb_word_lm.py --data_path=simple-examples/data/ --save_path=test2 --model=official_test_2
-
+$ python pointer_sent_test2.py --data_path=simple-examples/data/ --save_path=test2 --model=official_test_2
 
 Seeing Errors? 
 --> If modifying hyperparameters, make sure not to accidentally load old configurations. 
@@ -39,16 +37,13 @@ Our Adaptation:
   Pointer Sentinel Mixtrue Model
   https://arxiv.org/abs/1609.07843
 
-
 ##################
 ## Results     ###
 ##################
 
- The results with 
-
-==================================================
-Model Of Choice  | config | epochs | train | valid  | test
-===========================================
+============================================================
+Model Of Choice  | config | epochs | train | valid  | test |
+============================================================
 Zaremba, et. al. | small  | 13     | 37.99 | 121.39 | 115.91
 Pointer Sentinel | small  | 15...     | 
 

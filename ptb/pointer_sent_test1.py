@@ -43,8 +43,10 @@ FLAGS = flags.FLAGS
 from tensorflow.python.ops import rnn
 
 
+
 def data_type():
   return tf.float16 if FLAGS.use_fp16 else tf.float32
+
 
 class PTBInput(object):
   """The input data."""
@@ -56,6 +58,7 @@ class PTBInput(object):
     self.input_data, self.targets = reader.ptb_producer(
         data, batch_size, num_steps, config.L, name=name)
 
+
 class PTBModel(object):
   """The PTB model."""
 
@@ -66,6 +69,7 @@ class PTBModel(object):
     num_steps = input_.num_steps
     size = config.hidden_size
     vocab_size = config.vocab_size
+
 
     def lstm_cell():
       return tf.contrib.rnn.BasicLSTMCell(
@@ -112,7 +116,6 @@ class PTBModel(object):
     #     outputs_all.append(cell_output)
 
     # This is the order it was in for the first method, which I'd written it for.
-    # This unfortinate choice lead to a lot of reshaping, which is slow.
     outputs_all = tf.transpose(outputs_all,perm=[1,0,2])
 
     outputs_prediction = tf.gather(outputs_all, tf.range(config.L, config.L+num_steps)) 
@@ -172,12 +175,7 @@ class PTBModel(object):
       # the two matricies together.
       z_with_pad = tf.pad(z, [[0,0],[0,1]], mode='CONSTANT', name=None)
       sparseMatrix = tf.one_hot(tf.tile([num_steps],[num_steps*batch_size]), num_steps+1, dtype=tf.float32)
-
-      # print(z_with_pad)
-      # print(g)
-      # print(sparseMatrix)
-
-      result = sparseMatrix * tf.tile(tf.expand_dims(g, 1), [1,num_steps+1]) + z_with_pad
+      result = sparseMatrix * g + z_with_pad
       return result
 
     def splitOffG(myMatrix):
@@ -233,14 +231,9 @@ class PTBModel(object):
     # many q's we require.
     q = tf.tanh(tf.matmul(outputs_prediction, W_for_q) + b_for_q, name='q')
 
-    qTran = tf.reshape(q, [num_steps, batch_size, size])
-    qTran = tf.transpose(qTran, perm=[1,0,2])
-    s = tf.get_variable("s", [num_steps,size], dtype=data_type())
+    s = tf.get_variable("s", [size,1], dtype=data_type())
     # s undergoes reduction STEPS*BATCHSIZE X size --> STEPS*BATCHSIZE to result in g's. 
-
-    g = tf.reduce_sum(tf.multiply(qTran,s), 2) # batchsize*numsteps
-    g = tf.reshape(tf.transpose(g), [num_steps*batch_size])
-
+    g = tf.matmul(q,s) # STEPS*BATCHSIZE
 
     #########################################################
     ## This section is for the L portion.
@@ -443,24 +436,6 @@ class TinyConfig(object):
   L = 10
   keep_prob_words = 1
 
-class SmallConfig(object):
-  """Small config."""
-  init_scale = 0.1
-  # learning_rate = 0.001
-  learning_rate = 1.0
-  max_grad_norm = 1
-  num_layers = 1 # Change this to two later.
-  num_steps = 1 # Change to 20 later.
-  L = 80
-  hidden_size = 350
-  max_epoch = 4
-  max_max_epoch = 25
-  keep_prob = 0.5
-  lr_decay = 0.5
-  batch_size = 40
-  vocab_size = 10000
-  keep_prob_words = 0.5
-
 
 class SmallConfigForOfficialTest_numSteps1(object):
   """Small config.
@@ -486,66 +461,6 @@ class SmallConfigForOfficialTest_numSteps1(object):
   batch_size = 15
   vocab_size = 10000
 
-class SmallConfigForOfficialTest_numSteps20(object):
-  """Small config.
-  This config is for performing an isolated test. 
-  Num_steps still equals 20, as in (Zaremba, et. al.) 
-  Parameters are the same as:
-  (Zaremba, et. al.) Recurrent Neural Network Regularization
-  Except for:
-  > The addition of Pointer Sentinel. 
-  """
-  L = 80
-  init_scale = 0.1
-  learning_rate = 1.0
-  max_grad_norm = 1
-  num_layers = 2
-  num_steps = 20
-  hidden_size = 200
-  max_epoch = 4
-  max_max_epoch = 25
-  keep_prob = 0.9
-  keep_prob_words = 1.0
-  lr_decay = 0.5
-  batch_size = 15
-  vocab_size = 10000
-
-
-class MediumConfig(object):
-  """Medium config."""
-  init_scale = 0.05
-  #learning_rate = 0.003
-  learning_rate = 1.0
-  max_grad_norm = 1
-  num_layers = 2
-  num_steps = 25
-  L = 85
-  hidden_size = 500
-  max_epoch = 6
-  max_max_epoch = 80
-  keep_prob = 0.5
-  keep_prob_words = 0.5
-  lr_decay = 0.5
-  batch_size = 5
-  vocab_size = 10000
-
-
-class LargeConfig(object):
-  """Large config."""
-  init_scale = 0.04
-  learning_rate = 1.0
-  max_grad_norm = 10
-  num_layers = 2
-  num_steps = 35
-  hidden_size = 1500
-  max_epoch = 14
-  max_max_epoch = 55
-  keep_prob = 0.35
-  lr_decay = 1 / 1.15
-  batch_size = 20
-  vocab_size = 10000
-  L = 100
-
 
 def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
   """Runs the model on the given data."""
@@ -553,6 +468,7 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
   costs = 0.0
   iters = 0
   state = session.run(model.initial_state)
+
 
   if FLAGS.vis:
     fetches = {
@@ -582,14 +498,11 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
     cost = vals["cost"]
     state = vals["final_state"]
 
-
     if FLAGS.vis and ids_to_words:
       Gs = vals["Gs"]
       inputs = vals["in"]
       targets = vals["targets"]
       p_ptr = vals["p_ptr"]
-
-
 
 
       # Analysis of trainable variables with tiny config.
@@ -675,18 +588,10 @@ def run_epoch(session, model, eval_op=None, verbose=False, ids_to_words=None):
 
 
 def get_config():
-  if FLAGS.model == "small":
-    return SmallConfig()
-  elif FLAGS.model == "medium":
-    return MediumConfig()
-  elif FLAGS.model == "large":
-    return LargeConfig()
-  elif FLAGS.model == "tiny":
+  if FLAGS.model == "tiny":
     return TinyConfig()
   elif FLAGS.model == "official_test_1":
     return SmallConfigForOfficialTest_numSteps1()
-  elif FLAGS.model == "official_test_2":
-    return SmallConfigForOfficialTest_numSteps20()
   else:
     raise ValueError("Invalid model: %s", FLAGS.model)
 
